@@ -21,6 +21,15 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 pool = None  # Postgres pool
 
+# ----------------- GIFS (nur diese 5 Stellen) -----------------
+GIFS = {
+    "wallet": "https://media4.giphy.com/media/dyo00GDRzNMVr5M7YW/giphy.gif",
+    "start_menu": "https://media3.giphy.com/media/oKvXGZJY1XXF3hBHGn/giphy.gif",
+    "deal_create": "https://media4.giphy.com/media/c7nguHduQW4l8djHIC/giphy.gif",
+    "deal_done": "https://media0.giphy.com/media/BPRvr3dczmYFXODP7c/giphy.gif",
+    "payment_received": "https://media4.giphy.com/media/KfU0CuKVyumasv6F3p/giphy.gif"
+}
+
 # ----------------- TRANSLATIONS -----------------
 TEXTS = {
     "en": {
@@ -188,11 +197,14 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    # Immer Menü + Welcome senden
+    # GIF: Start-Menü
+    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"])
+    # Welcome + Menü
     await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
 
-    # Wenn Wallet fehlt: freundliche Erklärung direkt danach
+    # Falls kein Wallet: GIF + Erklärung
     if not wallet:
+        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"])
         await message.answer(TEXTS[lang]["wallet_none"])
 
 # ----------------- CALLBACKS -----------------
@@ -205,14 +217,18 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        user_states[uid] = {"flow":"create","step":"amount"}
+        # GIF: Deal erstellen
+        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"])
+        user_states[uid] = {"flow": "create", "step": "amount"}
         await cq.message.answer(TEXTS[lang]["ask_amount"])
         await cq.answer()
         return
 
     if data == "my_deals":
         async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1", uid)
+            rows = await conn.fetch(
+                "SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1", uid
+            )
         if not rows:
             await cq.message.answer(TEXTS[lang]["no_deals"])
         else:
@@ -270,10 +286,10 @@ async def cb_all(cq: types.CallbackQuery):
 @dp.message()
 async def msg_handler(message: types.Message):
     uid = message.from_user.id
-    txt = message.text.strip()
+    txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
-    # Wallet-Eingabe erkennen
+    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
@@ -284,39 +300,43 @@ async def msg_handler(message: types.Message):
     if uid == ADMIN_ID:
         if txt.startswith("/paid "):
             raw_token = txt.split()[1]
-            if raw_token.startswith("DEAL-") and "-" in raw_token:
-                token = raw_token.split("-")[1]
-            else:
-                token = raw_token
+            token = raw_token.split("-")[1] if raw_token.startswith("DEAL-") and "-" in raw_token else raw_token
 
             async with pool.acquire() as conn:
-                deal = await conn.fetchrow("SELECT seller_id,buyer_id FROM deals WHERE deal_token=$1", token)
+                deal = await conn.fetchrow(
+                    "SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token
+                )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
+            # GIF: Zahlung erhalten
+            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"])
             await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
 
             if deal and deal["seller_id"]:
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="📤 I have sent the Gift", callback_data=f"seller_sent:{token}")]
-                ])
+                # Käuferinfo
                 buyer_info = None
                 if deal and deal["buyer_id"]:
                     try:
                         user = await bot.get_chat(deal["buyer_id"])
-                        if user.username:
-                            buyer_info = f"@{user.username}"
-                        else:
-                            buyer_info = user.full_name
+                        buyer_info = f"@{user.username}" if user.username else user.full_name
                     except Exception:
                         buyer_info = "❓ Unknown Buyer"
 
+                # Neuer, formattierter Zahlungstext an den Verkäufer
                 msg_text = (
-                    f"✅ Payment for deal {token} confirmed.\n\n"
-                    f"📦 Please send the NFT to the buyer: {buyer_info}\n\n"
-                    f"🎥 Important: Start a screen recording before you send the NFT.\n"
-                    f"🛟 If there are any issues, contact Support.\n\n"
-                    f"After sending, confirm below ⬇️"
+                    f"💥 Zahlung für die Transaktion {token} erhalten!\n\n"
+                    f"👤 Käufer: {buyer_info}\n\n"
+                    f"Übergabe des Artikels an den Käufer → {buyer_info}\n\n"
+                    f"Sie erhalten: {deal['amount']} TON\n"
+                    f"Sie geben: {deal['description']}\n\n"
+                    f"‼️ Übergeben Sie die Ware nur an die in der Transaktion angegebene Person.\n"
+                    f"Falls die Ware an eine andere Person übergeben wird, erfolgt keine Rückerstattung.\n"
+                    f"Um Garantien zu erhalten, nehmen Sie den Moment der Warenübergabe auf Video auf."
                 )
+
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📤 I have sent the Gift", callback_data=f"seller_sent:{token}")]
+                ])
 
                 try:
                     await bot.send_message(deal["seller_id"], msg_text, reply_markup=kb)
@@ -351,13 +371,14 @@ async def msg_handler(message: types.Message):
         if state["step"] == "amount":
             try:
                 amt = Decimal(txt)
-                if amt <= 0: raise Exception()
+                if amt <= 0:
+                    raise Exception()
                 state["amount"] = str(amt)
                 state["step"] = "desc"
                 user_states[uid] = state
                 await message.answer(TEXTS[lang]["ask_desc"])
                 return
-            except:
+            except Exception:
                 await message.answer(TEXTS[lang]["ask_amount"])
                 return
 
@@ -367,10 +388,13 @@ async def msg_handler(message: types.Message):
             payment_token = f"DEAL-{deal_token}-{secrets.token_hex(4)}"
             async with pool.acquire() as conn:
                 await conn.execute("""
-                INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
-                VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
+                    INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
+                    VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
+
+            # GIF: Deal erfolgreich erstellt
+            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["deal_done"])
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
@@ -381,6 +405,7 @@ async def msg_handler(message: types.Message):
             )
             return
 
+    # Fallback: Menü anzeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
