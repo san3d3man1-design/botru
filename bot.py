@@ -30,8 +30,8 @@ TEXTS = {
             "✨ Automated, fast, and hassle-free!\n\n"
             "```"
             "🔷 Service fee: only 3 %\n"
-            "🔷 Support 24/7: @msk_deputat\n"
-            "🔷 User reviews: @reviews_zaspa"
+            "🔷 Support 24/7: @rdmcd\n"
+            "🔷 User reviews: @tonundrwrld"
             "```\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
@@ -57,7 +57,7 @@ TEXTS = {
         ),
         "wallet_current": "👛 *Current wallet:*\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
         "wallet_none": (
-            "ℹ️ To use OGuarantBot, you need to link your TON wallet.\n\n"
+            "ℹ️ To use @GiftedGuarantBot, you need to link your TON wallet.\n\n"
             "This allows us to securely process your deals and payouts. "
             "Don’t worry – you can change your wallet anytime.\n\n"
             "👉 Please send your TON wallet address below to get started."
@@ -70,8 +70,8 @@ TEXTS = {
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
             "```"
             "🔷 Комісія сервісу: лише 3 %\n"
-            "🔷 Підтримка 24/7: @msk_deputat\n"
-            "🔷 Відгуки користувачів: @reviews_zaspa"
+            "🔷 Підтримка 24/7: @rdmcd\n"
+            "🔷 Відгуки користувачів: @tonundrwrld"
             "```\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
@@ -97,7 +97,7 @@ TEXTS = {
         ),
         "wallet_current": "👛 *Поточний гаманець:*\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
         "wallet_none": (
-            "ℹ️ Щоб користуватися OGuarantBot, потрібно додати свій TON гаманець.\n\n"
+            "ℹ️ Щоб користуватися @GiftedGuarantBot, потрібно додати свій TON гаманець.\n\n"
             "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
             "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
