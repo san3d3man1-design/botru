@@ -340,20 +340,18 @@ async def msg_handler(message: types.Message):
                 seller_lang = await get_lang(deal["seller_id"])
 
                 # Neuer /paid Text
-                msg_text = (
-                    f"💥 {'Payment for transaction' if seller_lang=='en' else 'Платіж за транзакцію'} {token} "
-                    f"{'received' if seller_lang=='en' else 'отримано'}!\n\n"
-                    f"👤 {'Buyer' if seller_lang=='en' else 'Покупець'}: {buyer_info}\n\n"
-                    f"{'Deliver the item to buyer' if seller_lang=='en' else 'Передайте товар покупцю'} → {buyer_info}\n\n"
-                    f"{'You will receive' if seller_lang=='en' else 'Ви отримаєте'}: {deal['amount']} TON\n"
-                    f"{'You give' if seller_lang=='en' else 'Ви передаєте'}: {deal['description']}\n\n"
-                    f"<pre>{'‼️ Only deliver the goods to the person specified in the transaction.\n'
-                         'If you give it to someone else, there will be no refund.\n'
-                         'To ensure guarantees, record a video of the transfer moment.'
-                         if seller_lang=='en' else
-                         '‼️ Передавайте товар лише особі, вказаній у транзакції.\n'
-                         'Якщо ви передасте його іншій людині – повернення коштів не буде.\n'
-                         'Для гарантій знімайте відео моменту передачі.'}</pre>"
+                msg_text = f"""
+💥 {'Payment for transaction' if seller_lang=='en' else 'Платіж за транзакцію'} {token} {'received' if seller_lang=='en' else 'отримано'}!
+
+👤 {'Buyer' if seller_lang=='en' else 'Покупець'}: {buyer_info}
+
+{'Deliver the item to buyer' if seller_lang=='en' else 'Передайте товар покупцю'} → {buyer_info}
+
+{'You will receive' if seller_lang=='en' else 'Ви отримаєте'}: {deal['amount']} TON
+{'You give' if seller_lang=='en' else 'Ви передаєте'}: {deal['description']}
+
+<pre>{'‼️ Only deliver the goods to the person specified in the transaction.\nIf you give it to someone else, there will be no refund.\nTo ensure guarantees, record a video of the transfer moment.' if seller_lang=='en' else '‼️ Передавайте товар лише особі, вказаній у транзакції.\nЯкщо ви передасте його іншій людині – повернення коштів не буде.\nДля гарантій знімайте відео моменту передачі.'}</pre>
+"""
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
