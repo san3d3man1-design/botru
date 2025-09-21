@@ -3,7 +3,6 @@ import asyncio
 import asyncpg
 import secrets
 import time
-import html
 from decimal import Decimal
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
@@ -25,7 +24,7 @@ pool = None  # Postgres pool
 # ----------------- GIFS -----------------
 GIFS = {
     "wallet": "https://media4.giphy.com/media/dyo00GDRzNMVr5M7YW/giphy.gif",
-    "start_menu": "https://t.me/flooten/10",
+    "start_menu": "https://media3.giphy.com/media/oKvXGZJY1XXF3hBHGn/giphy.gif",
     "deal_create": "https://media4.giphy.com/media/c7nguHduQW4l8djHIC/giphy.gif",
     "deal_done": "https://media0.giphy.com/media/BPRvr3dczmYFXODP7c/giphy.gif",
     "payment_received": "https://media4.giphy.com/media/KfU0CuKVyumasv6F3p/giphy.gif"
@@ -38,11 +37,9 @@ TEXTS = {
             "👋 **Welcome!**\n\n"
             "💼 Reliable service for secure transactions!\n"
             "✨ Automated, fast, and hassle-free!\n\n"
-            "```"
             "🔷 Service fee: only 3 %\n"
             "🔷 Support 24/7: @rdmcd\n"
-            "🔷 User reviews: @tonundrwrld"
-            "```\n\n"
+            "🔷 User reviews: @tonundrwrld\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
         "new_deal": "📄 New Deal",
@@ -78,11 +75,9 @@ TEXTS = {
             "👋 **Ласкаво просимо!**\n\n"
             "💼 Надійний сервіс для безпечних транзакцій!\n"
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
-            "```"
             "🔷 Комісія сервісу: лише 3 %\n"
             "🔷 Підтримка 24/7: @rdmcd\n"
-            "🔷 Відгуки користувачів: @tonundrwrld"
-            "```\n\n"
+            "🔷 Відгуки користувачів: @tonundrwrld\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
         "new_deal": "📄 Нова угода",
@@ -215,7 +210,8 @@ async def cmd_start(message: types.Message):
             caption=TEXTS[lang]["wallet_none"],
             parse_mode="Markdown"
         )
-        # ----------------- CALLBACKS -----------------
+
+# ----------------- CALLBACKS -----------------
 user_states = {}
 
 @dp.callback_query()
@@ -294,7 +290,6 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
-
 # ----------------- MESSAGES -----------------
 @dp.message()
 async def msg_handler(message: types.Message):
@@ -302,7 +297,7 @@ async def msg_handler(message: types.Message):
     txt = message.text.strip()
     lang = await get_lang(uid)
 
-    # Wallet-Eingabe
+    # Wallet Eingabe
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
@@ -339,7 +334,7 @@ async def msg_handler(message: types.Message):
                 # Verkäufer-Sprache
                 seller_lang = await get_lang(deal["seller_id"])
 
-                # Neuer /paid Text
+                # Neuer /paid Text (ohne <pre>)
                 msg_text = f"""
 💥 {'Payment for transaction' if seller_lang=='en' else 'Платіж за транзакцію'} {token} {'received' if seller_lang=='en' else 'отримано'}!
 
@@ -350,9 +345,8 @@ async def msg_handler(message: types.Message):
 {'You will receive' if seller_lang=='en' else 'Ви отримаєте'}: {deal['amount']} TON
 {'You give' if seller_lang=='en' else 'Ви передаєте'}: {deal['description']}
 
-<pre>{'‼️ Only deliver the goods to the person specified in the transaction.\nIf you give it to someone else, there will be no refund.\nTo ensure guarantees, record a video of the transfer moment.' if seller_lang=='en' else '‼️ Передавайте товар лише особі, вказаній у транзакції.\nЯкщо ви передасте його іншій людині – повернення коштів не буде.\nДля гарантій знімайте відео моменту передачі.'}</pre>
+‼️ {'Only deliver the goods to the person specified in the transaction.\nIf you give it to someone else, there will be no refund.\nTo ensure guarantees, record a video of the transfer moment.' if seller_lang=='en' else 'Передавайте товар лише особі, вказаній у транзакції.\nЯкщо ви передасте його іншій людині – повернення коштів не буде.\nДля гарантій знімайте відео моменту передачі.'}
 """
-                )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="📤 I have sent the Gift", callback_data=f"seller_sent:{token}")]
@@ -364,7 +358,7 @@ async def msg_handler(message: types.Message):
                     animation=GIFS["payment_received"],
                     caption=msg_text,
                     reply_markup=kb,
-                    parse_mode="HTML"
+                    parse_mode="Markdown"
                 )
             return
 
@@ -387,7 +381,7 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
-    # ----------------- DEAL CREATION -----------------
+    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -398,20 +392,10 @@ async def msg_handler(message: types.Message):
                 state["amount"] = str(amt)
                 state["step"] = "desc"
                 user_states[uid] = state
-                await bot.send_animation(
-                    chat_id=message.chat.id,
-                    animation=GIFS["deal_create"],
-                    caption=TEXTS[lang]["ask_desc"],
-                    parse_mode="Markdown"
-                )
+                await message.answer(TEXTS[lang]["ask_desc"])
                 return
             except:
-                await bot.send_animation(
-                    chat_id=message.chat.id,
-                    animation=GIFS["deal_create"],
-                    caption=TEXTS[lang]["ask_amount"],
-                    parse_mode="Markdown"
-                )
+                await message.answer(TEXTS[lang]["ask_amount"])
                 return
 
         elif state["step"] == "desc":
@@ -420,22 +404,18 @@ async def msg_handler(message: types.Message):
             payment_token = f"DEAL-{deal_token}-{secrets.token_hex(4)}"
             async with pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
-                    VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
+                INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
+                VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
-
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
-
             await bot.send_animation(
                 chat_id=message.chat.id,
                 animation=GIFS["deal_done"],
-                caption=(
-                    f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
-                    f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
-                ),
+                caption=f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
+                        f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}",
                 reply_markup=kb,
                 parse_mode="Markdown"
             )
@@ -443,12 +423,10 @@ async def msg_handler(message: types.Message):
 
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
-
 # ----------------- STARTUP -----------------
 async def main():
     await init_db()
     await dp.start_polling(bot)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
