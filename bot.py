@@ -30,8 +30,8 @@ TEXTS = {
             "✨ Automated, fast, and hassle-free!\n\n"
             "```"
             "🔷 Service fee: only 3 %\n"
-            "🔷 Support 24/7: @rdmcd\n"
-            "🔷 User reviews: @tonundrwrld"
+            "🔷 Support 24/7: @msk_deputat\n"
+            "🔷 User reviews: @reviews_zaspa"
             "```\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
@@ -57,7 +57,7 @@ TEXTS = {
         ),
         "wallet_current": "👛 *Current wallet:*\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
         "wallet_none": (
-            "ℹ️ To use @GiftedGuarantBot, you need to link your TON wallet.\n\n"
+            "ℹ️ To use OGuarantBot, you need to link your TON wallet.\n\n"
             "This allows us to securely process your deals and payouts. "
             "Don’t worry – you can change your wallet anytime.\n\n"
             "👉 Please send your TON wallet address below to get started."
@@ -70,8 +70,8 @@ TEXTS = {
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
             "```"
             "🔷 Комісія сервісу: лише 3 %\n"
-            "🔷 Підтримка 24/7: @rdmcd\n"
-            "🔷 Відгуки користувачів: @tonundrwrld"
+            "🔷 Підтримка 24/7: @msk_deputat\n"
+            "🔷 Відгуки користувачів: @reviews_zaspa"
             "```\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
@@ -97,7 +97,7 @@ TEXTS = {
         ),
         "wallet_current": "👛 *Поточний гаманець:*\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
         "wallet_none": (
-            "ℹ️ Щоб користуватися @GiftedGuarantBot, потрібно додати свій TON гаманець.\n\n"
+            "ℹ️ Щоб користуватися OGuarantBot, потрібно додати свій TON гаманець.\n\n"
             "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
             "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
@@ -250,6 +250,22 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
+    if data.startswith("cancel_deal:"):
+        deal_token = data.split(":")[1]
+        async with pool.acquire() as conn:
+            deal = await conn.fetchrow("SELECT seller_id,status FROM deals WHERE deal_token=$1", deal_token)
+            if not deal:
+                await cq.message.answer(TEXTS[lang]["deal_not_found"])
+            elif deal["seller_id"] != uid:
+                await cq.message.answer("⚠️ You are not the owner of this deal.")
+            elif deal["status"] != "open":
+                await cq.message.answer("⚠️ Deal can no longer be cancelled.")
+            else:
+                await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", deal_token)
+                await cq.message.edit_text(f"❌ Deal {deal_token} has been cancelled.")
+        await cq.answer()
+        return
+
 # ----------------- MESSAGES -----------------
 @dp.message()
 async def msg_handler(message: types.Message):
@@ -355,9 +371,13 @@ async def msg_handler(message: types.Message):
                 VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
+            ])
             await message.answer(
                 f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
-                f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
+                f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}",
+                reply_markup=kb
             )
             return
 
