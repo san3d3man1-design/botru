@@ -30,7 +30,8 @@ TEXTS = {
             "✨ Automated, fast, and hassle-free!\n\n"
             "```"
             "🔷 Service fee: only 3 %\n"
-            "🔷 Support 24/7: @rdmcd"
+            "🔷 Support 24/7: @rdmcd\n"
+            "🔷 User reviews: @tonundrwrld"
             "```\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
@@ -50,10 +51,17 @@ TEXTS = {
         "deal_cancel": "❌ Deal {token} was cancelled.",
         "system_confirms": "⏳ The system will confirm automatically once payment is received.",
         "deal_not_found": "⚠️ Deal not found.",
-        "wallet_set": "✅ Your TON wallet has been updated:\n`{wallet}`",
-        "wallet_enter": "💳 Please send me your TON wallet address:",
+        "wallet_set": (
+            "✅ Great! Your TON wallet has been saved:\n`{wallet}`\n\n"
+            "You can update it anytime by sending a new address."
+        ),
         "wallet_current": "👛 *Current wallet:*\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
-        "wallet_none": "⚠️ No wallet set yet.\n\nSend me your TON wallet address to save it 👇",
+        "wallet_none": (
+            "ℹ️ To use @GiftedGuarantBot, you need to link your TON wallet.\n\n"
+            "This allows us to securely process your deals and payouts. "
+            "Don’t worry – you can change your wallet anytime.\n\n"
+            "👉 Please send your TON wallet address below to get started."
+        ),
     },
     "uk": {
         "welcome": (
@@ -62,7 +70,8 @@ TEXTS = {
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
             "```"
             "🔷 Комісія сервісу: лише 3 %\n"
-            "🔷 Підтримка 24/7: @rdmcd"
+            "🔷 Підтримка 24/7: @rdmcd\n"
+            "🔷 Відгуки користувачів: @tonundrwrld"
             "```\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
@@ -82,10 +91,17 @@ TEXTS = {
         "deal_cancel": "❌ Угоду {token} скасовано.",
         "system_confirms": "⏳ Система підтвердить автоматично після отримання платежу.",
         "deal_not_found": "⚠️ Угоду не знайдено.",
-        "wallet_set": "✅ Ваш TON гаманець оновлено:\n`{wallet}`",
-        "wallet_enter": "💳 Надішліть адресу вашого TON гаманця:",
+        "wallet_set": (
+            "✅ Чудово! Ваш TON гаманець збережено:\n`{wallet}`\n\n"
+            "Ви можете змінити його будь-коли, надіславши нову адресу."
+        ),
         "wallet_current": "👛 *Поточний гаманець:*\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
-        "wallet_none": "⚠️ Гаманець ще не встановлено.\n\nНадішліть адресу TON гаманця 👇",
+        "wallet_none": (
+            "ℹ️ Щоб користуватися @GiftedGuarantBot, потрібно додати свій TON гаманець.\n\n"
+            "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
+            "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
+            "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
+        ),
     }
 }
 
@@ -172,10 +188,12 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
+    # Immer Menü + Welcome senden
+    await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
+
+    # Wenn Wallet fehlt: freundliche Erklärung direkt danach
     if not wallet:
         await message.answer(TEXTS[lang]["wallet_none"])
-    else:
-        await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
 
 # ----------------- CALLBACKS -----------------
 user_states = {}
