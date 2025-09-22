@@ -59,15 +59,24 @@ TEXTS = {
         "system_confirms": "⏳ The system will confirm automatically once payment is received.",
         "deal_not_found": "⚠️ Deal not found.",
         "wallet_set": (
-            "✅ Great! Your TON wallet has been saved:\n\n`{wallet}`\n\n"
+            "✅ Great! Your TON wallet has been saved:\n`{wallet}`\n\n"
             "You can update it anytime by sending a new address."
         ),
-        "wallet_current": "👛 *Current wallet:*\n\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
+        "wallet_current": "👛 *Current wallet:*\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
         "wallet_none": (
             "ℹ️ To use @GiftedGuarantBot, you need to link your TON wallet.\n\n"
-            "This allows us to securely process your deals and payouts. "
-            "Don’t worry – you can change your wallet anytime.\n\n"
+            "This allows us to securely process your deals and payouts.\n\n"
             "👉 Please send your TON wallet address below to get started."
+        ),
+        "payment_notice": (
+            "💥 Payment for transaction {token} received!\n\n"
+            "👤 Buyer: {buyer}\n\n"
+            "Deliver the item to → {buyer}\n\n"
+            "You receive: {amount} TON\n"
+            "You give: {description}\n\n"
+            "‼️ Only hand over goods to the person in the deal.\n"
+            "If you give to someone else, no refund is possible.\n"
+            "📹 For safety, record a video of the handover."
         ),
     },
     "uk": {
@@ -97,15 +106,24 @@ TEXTS = {
         "system_confirms": "⏳ Система підтвердить автоматично після отримання платежу.",
         "deal_not_found": "⚠️ Угоду не знайдено.",
         "wallet_set": (
-            "✅ Чудово! Ваш TON гаманець збережено:\n\n`{wallet}`\n\n"
+            "✅ Чудово! Ваш TON гаманець збережено:\n`{wallet}`\n\n"
             "Ви можете змінити його будь-коли, надіславши нову адресу."
         ),
-        "wallet_current": "👛 *Поточний гаманець:*\n\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
+        "wallet_current": "👛 *Поточний гаманець:*\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
         "wallet_none": (
             "ℹ️ Щоб користуватися @GiftedGuarantBot, потрібно додати свій TON гаманець.\n\n"
-            "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
-            "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
+            "Це дозволяє нам безпечно обробляти ваші угоди та виплати.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
+        ),
+        "payment_notice": (
+            "💥 Оплата за транзакцією {token} отримана!\n\n"
+            "👤 Покупець: {buyer}\n\n"
+            "Передайте товар → {buyer}\n\n"
+            "Ви отримаєте: {amount} TON\n"
+            "Ви віддаєте: {description}\n\n"
+            "‼️ Передавайте товар лише особі, вказаній в угоді.\n"
+            "У разі передачі іншій особі повернення неможливе.\n"
+            "📹 Для безпеки зафіксуйте момент передачі на відео."
         ),
     }
 }
@@ -154,7 +172,7 @@ def main_menu(lang="en"):
     ])
     return kb
 
-# ----------------- START with deep link -----------------
+# ----------------- START with deep link (Buyer Link) -----------------
 @dp.message(CommandStart(deep_link=True))
 async def cmd_start_with_link(message: types.Message, command: CommandStart):
     uid = message.from_user.id
@@ -193,12 +211,23 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    # GIF: Start-Menü + Text
-    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"], caption=TEXTS[lang]["welcome"], parse_mode="Markdown")
+    # Start GIF + Text + Menü
+    await bot.send_animation(
+        chat_id=message.chat.id,
+        animation=GIFS["start_menu"],
+        caption=TEXTS[lang]["welcome"],
+        reply_markup=main_menu(lang),
+        parse_mode="Markdown"
+    )
 
     # Falls kein Wallet: GIF + Erklärung
     if not wallet:
-        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"], caption=TEXTS[lang]["wallet_none"], parse_mode="Markdown")
+        await bot.send_animation(
+            chat_id=message.chat.id,
+            animation=GIFS["wallet"],
+            caption=TEXTS[lang]["wallet_none"],
+            parse_mode="Markdown"
+        )
 
 # ----------------- CALLBACKS -----------------
 user_states = {}
@@ -210,8 +239,12 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        # GIF: Deal erstellen
-        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"], caption=TEXTS[lang]["ask_amount"], parse_mode="Markdown")
+        await bot.send_animation(
+            chat_id=cq.message.chat.id,
+            animation=GIFS["deal_create"],
+            caption=TEXTS[lang]["ask_amount"],
+            parse_mode="Markdown"
+        )
         user_states[uid] = {"flow": "create", "step": "amount"}
         await cq.answer()
         return
@@ -300,39 +333,31 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            # GIF: Zahlung erhalten
-            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"], caption=TEXTS[lang]["deal_paid"].format(token=token), parse_mode="Markdown")
+            buyer_info = "❓ Unknown Buyer"
+            if deal and deal["buyer_id"]:
+                try:
+                    user = await bot.get_chat(deal["buyer_id"])
+                    buyer_info = f"@{user.username}" if user.username else user.full_name
+                except Exception:
+                    pass
 
             if deal and deal["seller_id"]:
-                buyer_info = None
-                if deal and deal["buyer_id"]:
-                    try:
-                        user = await bot.get_chat(deal["buyer_id"])
-                        buyer_info = f"@{user.username}" if user.username else user.full_name
-                    except Exception:
-                        buyer_info = "❓ Unknown Buyer"
-
-                msg_text = (
-                    f"💥 {TEXTS[lang]['deal_paid'].format(token=token)}\n\n"
-                    f"👤 Buyer: {buyer_info}\n\n"
-                    f"Deliver the item to buyer → {buyer_info}\n\n"
-                    f"You will receive: {deal['amount']} TON\n"
-                    f"You give: {deal['description']}\n\n"
-                    f"‼️ Only deliver the goods to the person specified in the transaction.\n"
-                    f"If delivered to another person, no refund will be issued.\n"
-                    f"For guarantees, record the moment of delivery on video."
+                msg_text = TEXTS[lang]["payment_notice"].format(
+                    token=token,
+                    buyer=buyer_info,
+                    amount=deal["amount"],
+                    description=deal["description"]
                 )
-
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="📤 I have sent the Gift", callback_data=f"seller_sent:{token}")]
                 ])
-
-                try:
-                    await bot.send_message(deal["seller_id"], msg_text, reply_markup=kb)
-                except Exception as e:
-                    await message.answer(f"⚠️ Could not notify seller: {e}")
-            else:
-                await message.answer(f"⚠️ No seller_id found for deal {token}. DB row: {deal}")
+                await bot.send_animation(
+                    chat_id=deal["seller_id"],
+                    animation=GIFS["payment_received"],
+                    caption=msg_text,
+                    reply_markup=kb,
+                    parse_mode="Markdown"
+                )
             return
 
         if txt.startswith("/payout "):
@@ -382,16 +407,15 @@ async def msg_handler(message: types.Message):
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
 
-            # GIF: Deal erfolgreich erstellt
             await bot.send_animation(
                 chat_id=message.chat.id,
                 animation=GIFS["deal_done"],
-                caption=(
-                    f"{TEXTS[lang]['deal_created']}\n\n"
-                    f"Token: {deal_token}\n"
-                    f"Payment Token: {payment_token}\n\n"
-                    f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
-                )
+                caption=f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
+                        f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
+                ]),
+                parse_mode="Markdown"
             )
             return
 
