@@ -70,6 +70,12 @@ TEXTS = {
             "Don’t worry – you can change your wallet anytime.\n\n"
             "👉 Please send your TON wallet address below to get started."
         ),
+        "seller_sent": (
+            "✅ Thank you for using our bot!\n\n"
+            "The buyer has confirmed receipt of the item. 📦\n"
+            "The deal has been successfully completed.\n"
+            "You will soon receive your money at the saved wallet address. 💸"
+        ),
     },
     "uk": {
         "welcome": (
@@ -107,6 +113,12 @@ TEXTS = {
             "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
             "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
+        ),
+        "seller_sent": (
+            "✅ Дякуємо, що скористалися нашим ботом!\n\n"
+            "Покупець підтвердив отримання товару. 📦\n"
+            "Угода успішно завершена.\n"
+            "Незабаром ви отримаєте свої гроші на збережену адресу гаманця. 💸"
         ),
     }
 }
@@ -284,6 +296,18 @@ async def cb_all(cq: types.CallbackQuery):
             else:
                 await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", deal_token)
                 await cq.message.edit_text(f"❌ Deal {deal_token} has been cancelled.")
+        await cq.answer()
+        return
+
+    if data.startswith("seller_sent:"):
+        deal_token = data.split(":")[1]
+        async with pool.acquire() as conn:
+            deal = await conn.fetchrow("SELECT seller_id FROM deals WHERE deal_token=$1", deal_token)
+            if deal and deal["seller_id"] == uid:
+                await conn.execute("UPDATE deals SET status='completed' WHERE deal_token=$1", deal_token)
+                await cq.message.answer(TEXTS[lang]["seller_sent"])
+            else:
+                await cq.message.answer(TEXTS[lang]["deal_not_found"])
         await cq.answer()
         return
 
