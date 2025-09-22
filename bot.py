@@ -372,8 +372,7 @@ async def msg_handler(message: types.Message):
         if txt.startswith("/cancel "):
             token = txt.split()[1]
             async with pool.acquire() as conn:
-                await conn.execute("UPDATE deals SET status='cancelled'
-                                                   await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", token)
+                await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", token)
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
