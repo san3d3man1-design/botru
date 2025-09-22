@@ -37,11 +37,9 @@ TEXTS = {
             "👋 **Welcome!**\n\n"
             "💼 Reliable service for secure transactions!\n"
             "✨ Automated, fast, and hassle-free!\n\n"
-            "```"
             "🔷 Service fee: only 3 %\n"
             "🔷 Support 24/7: @rdmcd\n"
-            "🔷 User reviews: @tonundrwrld"
-            "```\n\n"
+            "🔷 User reviews: @tonundrwrld\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
         "new_deal": "📄 New Deal",
@@ -61,25 +59,15 @@ TEXTS = {
         "system_confirms": "⏳ The system will confirm automatically once payment is received.",
         "deal_not_found": "⚠️ Deal not found.",
         "wallet_set": (
-            "✅ Great! Your TON wallet has been saved:\n`{wallet}`\n\n"
+            "✅ Great! Your TON wallet has been saved:\n\n`{wallet}`\n\n"
             "You can update it anytime by sending a new address."
         ),
-        "wallet_current": "👛 *Current wallet:*\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
+        "wallet_current": "👛 *Current wallet:*\n\n`{wallet}`\n\nIf you want to change it, send a new one below 👇",
         "wallet_none": (
             "ℹ️ To use @GiftedGuarantBot, you need to link your TON wallet.\n\n"
             "This allows us to securely process your deals and payouts. "
             "Don’t worry – you can change your wallet anytime.\n\n"
             "👉 Please send your TON wallet address below to get started."
-        ),
-        "deal_payment_info": (
-            "💥 Payment for transaction {token} received!\n\n"
-            "👤 Buyer: {buyer}\n\n"
-            "Deliver the item to the buyer → {buyer}\n\n"
-            "You will receive: {amount} TON\n"
-            "You are giving: {description}\n\n"
-            "‼️ Only hand over the item to the person listed in the transaction.\n"
-            "If you hand it over to someone else, no refund will be possible.\n"
-            "For security, record a video when handing over the item."
         ),
     },
     "uk": {
@@ -87,11 +75,9 @@ TEXTS = {
             "👋 **Ласкаво просимо!**\n\n"
             "💼 Надійний сервіс для безпечних транзакцій!\n"
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
-            "```"
             "🔷 Комісія сервісу: лише 3 %\n"
             "🔷 Підтримка 24/7: @rdmcd\n"
-            "🔷 Відгуки користувачів: @tonundrwrld"
-            "```\n\n"
+            "🔷 Відгуки користувачів: @tonundrwrld\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
         "new_deal": "📄 Нова угода",
@@ -111,25 +97,15 @@ TEXTS = {
         "system_confirms": "⏳ Система підтвердить автоматично після отримання платежу.",
         "deal_not_found": "⚠️ Угоду не знайдено.",
         "wallet_set": (
-            "✅ Чудово! Ваш TON гаманець збережено:\n`{wallet}`\n\n"
+            "✅ Чудово! Ваш TON гаманець збережено:\n\n`{wallet}`\n\n"
             "Ви можете змінити його будь-коли, надіславши нову адресу."
         ),
-        "wallet_current": "👛 *Поточний гаманець:*\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
+        "wallet_current": "👛 *Поточний гаманець:*\n\n`{wallet}`\n\nЯкщо хочете змінити — введіть новий 👇",
         "wallet_none": (
             "ℹ️ Щоб користуватися @GiftedGuarantBot, потрібно додати свій TON гаманець.\n\n"
             "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
             "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
-        ),
-        "deal_payment_info": (
-            "💥 Оплата за транзакцію {token} отримана!\n\n"
-            "👤 Покупець: {buyer}\n\n"
-            "Передайте товар покупцю → {buyer}\n\n"
-            "Ви отримаєте: {amount} TON\n"
-            "Ви надаєте: {description}\n\n"
-            "‼️ Передавайте товар лише особі, зазначеній у транзакції.\n"
-            "У разі передачі іншій особі повернення неможливе.\n"
-            "Для гарантії запишіть відео моменту передачі товару."
         ),
     }
 }
@@ -217,12 +193,12 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"])
-    await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
+    # GIF: Start-Menü + Text
+    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"], caption=TEXTS[lang]["welcome"], parse_mode="Markdown")
 
+    # Falls kein Wallet: GIF + Erklärung
     if not wallet:
-        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"])
-        await message.answer(TEXTS[lang]["wallet_none"])
+        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"], caption=TEXTS[lang]["wallet_none"], parse_mode="Markdown")
 
 # ----------------- CALLBACKS -----------------
 user_states = {}
@@ -234,9 +210,9 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"])
+        # GIF: Deal erstellen
+        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"], caption=TEXTS[lang]["ask_amount"], parse_mode="Markdown")
         user_states[uid] = {"flow": "create", "step": "amount"}
-        await cq.message.answer(TEXTS[lang]["ask_amount"])
         await cq.answer()
         return
 
@@ -305,12 +281,14 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
+    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
+    # Admin commands
     if uid == ADMIN_ID:
         if txt.startswith("/paid "):
             raw_token = txt.split()[1]
@@ -322,8 +300,8 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"])
-            await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
+            # GIF: Zahlung erhalten
+            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"], caption=TEXTS[lang]["deal_paid"].format(token=token), parse_mode="Markdown")
 
             if deal and deal["seller_id"]:
                 buyer_info = None
@@ -334,11 +312,15 @@ async def msg_handler(message: types.Message):
                     except Exception:
                         buyer_info = "❓ Unknown Buyer"
 
-                msg_text = TEXTS[lang]["deal_payment_info"].format(
-                    token=token,
-                    buyer=buyer_info,
-                    amount=deal["amount"],
-                    description=deal["description"]
+                msg_text = (
+                    f"💥 {TEXTS[lang]['deal_paid'].format(token=token)}\n\n"
+                    f"👤 Buyer: {buyer_info}\n\n"
+                    f"Deliver the item to buyer → {buyer_info}\n\n"
+                    f"You will receive: {deal['amount']} TON\n"
+                    f"You give: {deal['description']}\n\n"
+                    f"‼️ Only deliver the goods to the person specified in the transaction.\n"
+                    f"If delivered to another person, no refund will be issued.\n"
+                    f"For guarantees, record the moment of delivery on video."
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -372,6 +354,7 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
+    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -399,17 +382,20 @@ async def msg_handler(message: types.Message):
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
 
-            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["deal_done"])
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
-            ])
-            await message.answer(
-                f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
-                f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}",
-                reply_markup=kb
+            # GIF: Deal erfolgreich erstellt
+            await bot.send_animation(
+                chat_id=message.chat.id,
+                animation=GIFS["deal_done"],
+                caption=(
+                    f"{TEXTS[lang]['deal_created']}\n\n"
+                    f"Token: {deal_token}\n"
+                    f"Payment Token: {payment_token}\n\n"
+                    f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
+                )
             )
             return
 
+    # Fallback: Menü anzeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
