@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, FSInputFile
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,13 +21,13 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 pool = None  # Postgres pool
 
-# ----------------- GIFS (File IDs oder lokale Dateien einsetzen) -----------------
+# ----------------- GIFS (Telegram file_ids) -----------------
 GIFS = {
-    "wallet": "wallet_file_id_here",
-    "start_menu": "start_file_id_here",
-    "deal_create": "deal_create_file_id_here",
-    "deal_done": "deal_done_file_id_here",
-    "payment_received": "payment_received_file_id_here"
+    "wallet": "CgACAgUAAxkBAAOQaNEfCaWQid948w6qnzYq_EZYwSQAAtQYAAITBoBW3-ihNesJfSo2BA",
+    "start_menu": "CgACAgIAAxkBAAOOaNEfBP6PPCVdEU76pOQ8hi6ZNO8AAl6EAAJa0nFKCJ1Xxe0VHqk2BA",
+    "deal_create": "CgACAgUAAxkBAAOSaNEfD-YGFJqMNsoSVqmSJ3M5JGwAAtMYAAITBoBWXrWIw-odYmE2BA",
+    "deal_done": "CgACAgIAAxkBAAOUaNEfEVNpxaPJBEJDGptYJVdulGAAAm15AAJoJmhJYzkzz1d-e2I2BA",
+    "payment_received": "CgACAgIAAxkBAAOWaNEfHrVg7A-D78-TAQ0uD6V5YS4AAmt5AAJoJmhJ2SdDxqSbm-o2BA"
 }
 
 # ----------------- TRANSLATIONS -----------------
@@ -158,15 +158,255 @@ def main_menu(lang="en"):
     ])
     return kb
 
-# ----------------- DEBUG HANDLER (File IDs ausgeben) -----------------
-@dp.message()
-async def debug_file_id(message: types.Message):
-    if message.animation:
-        await message.answer(f"Animation file_id: `{message.animation.file_id}`")
-    elif message.video:
-        await message.answer(f"Video file_id: `{message.video.file_id}`")
+# ----------------- START with deep link (Buyer Link) -----------------
+@dp.message(CommandStart(deep_link=True))
+async def cmd_start_with_link(message: types.Message, command: CommandStart):
+    uid = message.from_user.id
+    lang = await get_lang(uid)
+    token = command.args
+
+    if token and token.startswith("join_"):
+        deal_token = token.replace("join_", "")
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE deals SET buyer_id=$1 WHERE deal_token=$2", uid, deal_token)
+            deal = await conn.fetchrow("SELECT amount,description,payment_token FROM deals WHERE deal_token=$1", deal_token)
+        if deal:
+            await message.answer(
+                f"Deal {deal_token}\n{deal['amount']} TON\n{deal['description']}\n\n"
+                f"💰 Wallet: `{BOT_WALLET_ADDRESS}`\n\n"
+                f"Memo: `{deal['payment_token']}`\n\n"
+                f"{TEXTS[lang]['system_confirms']}",
+                parse_mode="Markdown"
+            )
+        else:
+            await message.answer(TEXTS[lang]["deal_not_found"])
     else:
-        await message.answer("❌ Dies ist kein GIF/Video, bitte sende eine Animation oder ein Video.")
+        await cmd_start(message)
+
+# ----------------- START normal -----------------
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO users (tg_id,name,lang) VALUES ($1,$2,'en') "
+            "ON CONFLICT (tg_id) DO UPDATE SET name=EXCLUDED.name",
+            message.from_user.id, message.from_user.full_name
+        )
+        row = await conn.fetchrow("SELECT lang,wallet FROM users WHERE tg_id=$1", message.from_user.id)
+
+    lang = row["lang"] if row else "en"
+    wallet = row["wallet"] if row else None
+
+    # GIF: Start-Menü
+    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"])
+    # Welcome + Menü
+    await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
+
+    # Falls kein Wallet: GIF + Erklärung
+    if not wallet:
+        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"])
+        await message.answer(TEXTS[lang]["wallet_none"])
+
+# ----------------- CALLBACKS -----------------
+user_states = {}
+
+@dp.callback_query()
+async def cb_all(cq: types.CallbackQuery):
+    data = cq.data or ""
+    uid = cq.from_user.id
+    lang = await get_lang(uid)
+
+    if data == "create_deal":
+        # GIF: Deal erstellen
+        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"])
+        user_states[uid] = {"flow": "create", "step": "amount"}
+        await cq.message.answer(TEXTS[lang]["ask_amount"])
+        await cq.answer()
+        return
+
+    if data == "my_deals":
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1", uid
+            )
+        if not rows:
+            await cq.message.answer(TEXTS[lang]["no_deals"])
+        else:
+            for r in rows:
+                await cq.message.answer(
+                    f"Deal {r['deal_token']}\n{r['amount']} TON\n{r['description']}\nStatus: {r['status']}"
+                )
+        await cq.answer()
+        return
+
+    if data == "my_wallet":
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT wallet FROM users WHERE tg_id=$1", uid)
+        if row and row["wallet"]:
+            await cq.message.answer(TEXTS[lang]["wallet_current"].format(wallet=row["wallet"]), parse_mode="Markdown")
+        else:
+            await cq.message.answer(TEXTS[lang]["wallet_none"])
+        await cq.answer()
+        return
+
+    if data == "change_lang":
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="English 🇬🇧", callback_data="setlang:en")],
+            [InlineKeyboardButton(text="Українська 🇺🇦", callback_data="setlang:uk")]
+        ])
+        await cq.message.answer(TEXTS[lang]["choose_lang"], reply_markup=kb)
+        await cq.answer()
+        return
+
+    if data.startswith("setlang:"):
+        new_lang = data.split(":")[1]
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE users SET lang=$1 WHERE tg_id=$2", new_lang, uid)
+        await cq.message.answer(TEXTS[new_lang]["menu"], reply_markup=main_menu(new_lang))
+        await cq.answer()
+        return
+
+    if data.startswith("cancel_deal:"):
+        deal_token = data.split(":")[1]
+        async with pool.acquire() as conn:
+            deal = await conn.fetchrow("SELECT seller_id,status FROM deals WHERE deal_token=$1", deal_token)
+            if not deal:
+                await cq.message.answer(TEXTS[lang]["deal_not_found"])
+            elif deal["seller_id"] != uid:
+                await cq.message.answer("⚠️ You are not the owner of this deal.")
+            elif deal["status"] != "open":
+                await cq.message.answer("⚠️ Deal can no longer be cancelled.")
+            else:
+                await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", deal_token)
+                await cq.message.edit_text(f"❌ Deal {deal_token} has been cancelled.")
+        await cq.answer()
+        return
+
+# ----------------- MESSAGES -----------------
+@dp.message()
+async def msg_handler(message: types.Message):
+    uid = message.from_user.id
+    txt = (message.text or "").strip()
+    lang = await get_lang(uid)
+
+    # Wallet speichern
+    if txt.startswith("UQ") and len(txt) > 30:
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
+        await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
+        return
+
+    # Admin commands
+    if uid == ADMIN_ID:
+        if txt.startswith("/paid "):
+            raw_token = txt.split()[1]
+            token = raw_token.split("-")[1] if raw_token.startswith("DEAL-") and "-" in raw_token else raw_token
+
+            async with pool.acquire() as conn:
+                deal = await conn.fetchrow(
+                    "SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token
+                )
+                await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
+
+            # GIF: Zahlung erhalten
+            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"])
+            await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
+
+            if deal and deal["seller_id"]:
+                # Käuferinfo
+                buyer_info = None
+                if deal and deal["buyer_id"]:
+                    try:
+                        user = await bot.get_chat(deal["buyer_id"])
+                        buyer_info = f"@{user.username}" if user.username else user.full_name
+                    except Exception:
+                        buyer_info = "❓ Unknown Buyer"
+
+                # Neuer, formattierter Zahlungstext an den Verkäufer
+                msg_text = (
+                    f"💥 Zahlung für die Transaktion {token} erhalten!\n\n"
+                    f"👤 Käufer: {buyer_info}\n\n"
+                    f"Übergabe des Artikels an den Käufer → {buyer_info}\n\n"
+                    f"Sie erhalten: {deal['amount']} TON\n"
+                    f"Sie geben: {deal['description']}\n\n"
+                    f"‼️ Übergeben Sie die Ware nur an die in der Transaktion angegebene Person.\n"
+                    f"Falls die Ware an eine andere Person übergeben wird, erfolgt keine Rückerstattung.\n"
+                    f"Um Garantien zu erhalten, nehmen Sie den Moment der Warenübergabe auf Video auf."
+                )
+
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="📤 I have sent the Gift", callback_data=f"seller_sent:{token}")]
+                ])
+
+                try:
+                    await bot.send_message(deal["seller_id"], msg_text, reply_markup=kb)
+                except Exception as e:
+                    await message.answer(f"⚠️ Could not notify seller: {e}")
+            else:
+                await message.answer(f"⚠️ No seller_id found for deal {token}. DB row: {deal}")
+            return
+
+        if txt.startswith("/payout "):
+            token = txt.split()[1]
+            async with pool.acquire() as conn:
+                deal = await conn.fetchrow("SELECT amount FROM deals WHERE deal_token=$1", token)
+                if deal:
+                    amt = Decimal(deal["amount"])
+                    fee = (amt * FEE_PERCENT / 100).quantize(Decimal("0.0000001"))
+                    payout = (amt - fee).quantize(Decimal("0.0000001"))
+                    await conn.execute("UPDATE deals SET status='payout_done' WHERE deal_token=$1", token)
+                    await message.answer(TEXTS[lang]["deal_payout"].format(token=token, amount=payout, fee=fee))
+            return
+
+        if txt.startswith("/cancel "):
+            token = txt.split()[1]
+            async with pool.acquire() as conn:
+                await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", token)
+            await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
+            return
+
+    # Deal creation flow
+    state = user_states.get(uid)
+    if state and state["flow"] == "create":
+        if state["step"] == "amount":
+            try:
+                amt = Decimal(txt)
+                if amt <= 0:
+                    raise Exception()
+                state["amount"] = str(amt)
+                state["step"] = "desc"
+                user_states[uid] = state
+                await message.answer(TEXTS[lang]["ask_desc"])
+                return
+            except Exception:
+                await message.answer(TEXTS[lang]["ask_amount"])
+                return
+
+        elif state["step"] == "desc":
+            desc = txt
+            deal_token = secrets.token_hex(6)
+            payment_token = f"DEAL-{deal_token}-{secrets.token_hex(4)}"
+            async with pool.acquire() as conn:
+                await conn.execute("""
+                    INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
+                    VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
+                """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
+            user_states.pop(uid, None)
+
+            # GIF: Deal erfolgreich erstellt
+            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["deal_done"])
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
+            ])
+            await message.answer(
+                f"{TEXTS[lang]['deal_created']}\nToken: {deal_token}\nPayment Token: {payment_token}\n\n"
+                f"Buyer Link:\nhttps://t.me/{(await bot.get_me()).username}?start=join_{deal_token}",
+                reply_markup=kb
+            )
+            return
+
+    # Fallback: Menü anzeigen
+    await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
 async def main():
