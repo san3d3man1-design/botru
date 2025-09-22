@@ -21,13 +21,13 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 pool = None  # Postgres pool
 
-# ----------------- GIFS (nur diese 5 Stellen) -----------------
+# ----------------- GIFS (lokale Dateien) -----------------
 GIFS = {
-    "wallet": "https://media4.giphy.com/media/dyo00GDRzNMVr5M7YW/giphy.gif",
-    "start_menu": "https://media3.giphy.com/media/oKvXGZJY1XXF3hBHGn/giphy.gif",
-    "deal_create": "https://media4.giphy.com/media/c7nguHduQW4l8djHIC/giphy.gif",
-    "deal_done": "https://media0.giphy.com/media/BPRvr3dczmYFXODP7c/giphy.gif",
-    "payment_received": "https://media4.giphy.com/media/KfU0CuKVyumasv6F3p/giphy.gif"
+    "wallet": "gifs/wallet.gif",
+    "start_menu": "gifs/start.gif",
+    "deal_create": "gifs/deal_create.gif",
+    "deal_done": "gifs/deal_done.gif",
+    "payment_received": "gifs/payment_received.gif"
 }
 
 # ----------------- TRANSLATIONS -----------------
@@ -37,11 +37,9 @@ TEXTS = {
             "👋 **Welcome!**\n\n"
             "💼 Reliable service for secure transactions!\n"
             "✨ Automated, fast, and hassle-free!\n\n"
-            "```"
             "🔷 Service fee: only 3 %\n"
             "🔷 Support 24/7: @rdmcd\n"
-            "🔷 User reviews: @tonundrwrld"
-            "```\n\n"
+            "🔷 User reviews: @tonundrwrld\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
         "new_deal": "📄 New Deal",
@@ -77,11 +75,9 @@ TEXTS = {
             "👋 **Ласкаво просимо!**\n\n"
             "💼 Надійний сервіс для безпечних транзакцій!\n"
             "✨ Автоматизовано, швидко та без клопоту!\n\n"
-            "```"
             "🔷 Комісія сервісу: лише 3 %\n"
             "🔷 Підтримка 24/7: @rdmcd\n"
-            "🔷 Відгуки користувачів: @tonundrwrld"
-            "```\n\n"
+            "🔷 Відгуки користувачів: @tonundrwrld\n\n"
             "💌❤️ Тепер ваші транзакції захищені! 🛡️"
         ),
         "new_deal": "📄 Нова угода",
@@ -197,14 +193,11 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    # GIF: Start-Menü
-    await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"])
-    # Welcome + Menü
+    await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["start_menu"]))
     await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
 
-    # Falls kein Wallet: GIF + Erklärung
     if not wallet:
-        await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"])
+        await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["wallet"]))
         await message.answer(TEXTS[lang]["wallet_none"])
 
 # ----------------- CALLBACKS -----------------
@@ -217,8 +210,7 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        # GIF: Deal erstellen
-        await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"])
+        await bot.send_animation(chat_id=cq.message.chat.id, animation=types.FSInputFile(GIFS["deal_create"]))
         user_states[uid] = {"flow": "create", "step": "amount"}
         await cq.message.answer(TEXTS[lang]["ask_amount"])
         await cq.answer()
@@ -289,14 +281,12 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
-    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
-    # Admin commands
     if uid == ADMIN_ID:
         if txt.startswith("/paid "):
             raw_token = txt.split()[1]
@@ -308,12 +298,10 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            # GIF: Zahlung erhalten
-            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"])
+            await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["payment_received"]))
             await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
 
             if deal and deal["seller_id"]:
-                # Käuferinfo
                 buyer_info = None
                 if deal and deal["buyer_id"]:
                     try:
@@ -322,16 +310,15 @@ async def msg_handler(message: types.Message):
                     except Exception:
                         buyer_info = "❓ Unknown Buyer"
 
-                # Neuer, formattierter Zahlungstext an den Verkäufer
                 msg_text = (
-                    f"💥 Zahlung für die Transaktion {token} erhalten!\n\n"
-                    f"👤 Käufer: {buyer_info}\n\n"
-                    f"Übergabe des Artikels an den Käufer → {buyer_info}\n\n"
-                    f"Sie erhalten: {deal['amount']} TON\n"
-                    f"Sie geben: {deal['description']}\n\n"
-                    f"‼️ Übergeben Sie die Ware nur an die in der Transaktion angegebene Person.\n"
-                    f"Falls die Ware an eine andere Person übergeben wird, erfolgt keine Rückerstattung.\n"
-                    f"Um Garantien zu erhalten, nehmen Sie den Moment der Warenübergabe auf Video auf."
+                    f"💥 Payment for transaction {token} received!\n\n"
+                    f"👤 Buyer: {buyer_info}\n\n"
+                    f"Deliver the item to buyer → {buyer_info}\n\n"
+                    f"You will receive: {deal['amount']} TON\n"
+                    f"You give: {deal['description']}\n\n"
+                    f"‼️ Only deliver the goods to the person specified in the transaction.\n"
+                    f"If the goods are handed to another person, no refund is possible.\n"
+                    f"For guarantees, record the delivery on video."
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -365,7 +352,6 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
-    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -393,8 +379,7 @@ async def msg_handler(message: types.Message):
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
 
-            # GIF: Deal erfolgreich erstellt
-            await bot.send_animation(chat_id=message.chat.id, animation=GIFS["deal_done"])
+            await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["deal_done"]))
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
@@ -405,7 +390,6 @@ async def msg_handler(message: types.Message):
             )
             return
 
-    # Fallback: Menü anzeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
