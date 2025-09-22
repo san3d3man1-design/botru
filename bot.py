@@ -71,6 +71,16 @@ TEXTS = {
             "Don’t worry – you can change your wallet anytime.\n\n"
             "👉 Please send your TON wallet address below to get started."
         ),
+        "deal_payment_info": (
+            "💥 Payment for transaction {token} received!\n\n"
+            "👤 Buyer: {buyer}\n\n"
+            "Deliver the item to the buyer → {buyer}\n\n"
+            "You will receive: {amount} TON\n"
+            "You are giving: {description}\n\n"
+            "‼️ Only hand over the item to the person listed in the transaction.\n"
+            "If you hand it over to someone else, no refund will be possible.\n"
+            "For security, record a video when handing over the item."
+        ),
     },
     "uk": {
         "welcome": (
@@ -110,6 +120,16 @@ TEXTS = {
             "Це дозволяє нам безпечно обробляти ваші угоди та виплати. "
             "Не хвилюйтеся – ви завжди зможете змінити адресу.\n\n"
             "👉 Надішліть адресу вашого TON гаманця нижче, щоб почати."
+        ),
+        "deal_payment_info": (
+            "💥 Оплата за транзакцію {token} отримана!\n\n"
+            "👤 Покупець: {buyer}\n\n"
+            "Передайте товар покупцю → {buyer}\n\n"
+            "Ви отримаєте: {amount} TON\n"
+            "Ви надаєте: {description}\n\n"
+            "‼️ Передавайте товар лише особі, зазначеній у транзакції.\n"
+            "У разі передачі іншій особі повернення неможливе.\n"
+            "Для гарантії запишіть відео моменту передачі товару."
         ),
     }
 }
@@ -158,7 +178,7 @@ def main_menu(lang="en"):
     ])
     return kb
 
-# ----------------- START with deep link (Buyer Link) -----------------
+# ----------------- START with deep link -----------------
 @dp.message(CommandStart(deep_link=True))
 async def cmd_start_with_link(message: types.Message, command: CommandStart):
     uid = message.from_user.id
@@ -197,12 +217,9 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    # GIF: Start-Menü
     await bot.send_animation(chat_id=message.chat.id, animation=GIFS["start_menu"])
-    # Welcome + Menü
     await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
 
-    # Falls kein Wallet: GIF + Erklärung
     if not wallet:
         await bot.send_animation(chat_id=message.chat.id, animation=GIFS["wallet"])
         await message.answer(TEXTS[lang]["wallet_none"])
@@ -217,7 +234,6 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        # GIF: Deal erstellen
         await bot.send_animation(chat_id=cq.message.chat.id, animation=GIFS["deal_create"])
         user_states[uid] = {"flow": "create", "step": "amount"}
         await cq.message.answer(TEXTS[lang]["ask_amount"])
@@ -289,14 +305,12 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
-    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
-    # Admin commands
     if uid == ADMIN_ID:
         if txt.startswith("/paid "):
             raw_token = txt.split()[1]
@@ -308,12 +322,10 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            # GIF: Zahlung erhalten
             await bot.send_animation(chat_id=message.chat.id, animation=GIFS["payment_received"])
             await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
 
             if deal and deal["seller_id"]:
-                # Käuferinfo
                 buyer_info = None
                 if deal and deal["buyer_id"]:
                     try:
@@ -322,16 +334,11 @@ async def msg_handler(message: types.Message):
                     except Exception:
                         buyer_info = "❓ Unknown Buyer"
 
-                # Neuer, formattierter Zahlungstext an den Verkäufer
-                msg_text = (
-                    f"💥 Zahlung für die Transaktion {token} erhalten!\n\n"
-                    f"👤 Käufer: {buyer_info}\n\n"
-                    f"Übergabe des Artikels an den Käufer → {buyer_info}\n\n"
-                    f"Sie erhalten: {deal['amount']} TON\n"
-                    f"Sie geben: {deal['description']}\n\n"
-                    f"‼️ Übergeben Sie die Ware nur an die in der Transaktion angegebene Person.\n"
-                    f"Falls die Ware an eine andere Person übergeben wird, erfolgt keine Rückerstattung.\n"
-                    f"Um Garantien zu erhalten, nehmen Sie den Moment der Warenübergabe auf Video auf."
+                msg_text = TEXTS[lang]["deal_payment_info"].format(
+                    token=token,
+                    buyer=buyer_info,
+                    amount=deal["amount"],
+                    description=deal["description"]
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -365,7 +372,6 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
-    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -393,7 +399,6 @@ async def msg_handler(message: types.Message):
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
 
-            # GIF: Deal erfolgreich erstellt
             await bot.send_animation(chat_id=message.chat.id, animation=GIFS["deal_done"])
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
@@ -405,7 +410,6 @@ async def msg_handler(message: types.Message):
             )
             return
 
-    # Fallback: Menü anzeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
