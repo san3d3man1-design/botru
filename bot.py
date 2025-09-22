@@ -3,6 +3,7 @@ import asyncio
 import asyncpg
 import secrets
 import time
+import ssl
 from decimal import Decimal
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command, CommandStart
@@ -12,14 +13,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "0").split(",")]  # mehrere Admins möglich
+ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "0").split(",")]
 BOT_WALLET_ADDRESS = os.getenv("BOT_WALLET_ADDRESS", "YOUR_WALLET")
 FEE_PERCENT = Decimal(os.getenv("FEE_PERCENT") or "3.0")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-pool = None  # Postgres pool
+pool = None
 
 # ----------------- GIFS -----------------
 GIFS = {
@@ -113,7 +114,8 @@ TEXTS = {
 # ----------------- DB INIT -----------------
 async def init_db():
     global pool
-    pool = await asyncpg.create_pool(DATABASE_URL, ssl="require")
+    ssl_context = ssl.create_default_context(cafile=None)
+    pool = await asyncpg.create_pool(DATABASE_URL, ssl=ssl_context)
     async with pool.acquire() as conn:
         await conn.execute("""
         CREATE TABLE IF NOT EXISTS deals (
@@ -125,7 +127,6 @@ async def init_db():
             description TEXT,
             status TEXT,
             buyer_id BIGINT,
-            payment_token TEXT,
             created_at BIGINT
         )
         """)
@@ -154,7 +155,7 @@ def main_menu(lang="en"):
     ])
     return kb
 
-# ----------------- START with deep link (Buyer Link) -----------------
+# ----------------- START with deep link -----------------
 @dp.message(CommandStart(deep_link=True))
 async def cmd_start_with_link(message: types.Message, command: CommandStart):
     uid = message.from_user.id
@@ -165,12 +166,12 @@ async def cmd_start_with_link(message: types.Message, command: CommandStart):
         deal_token = token.replace("join_", "")
         async with pool.acquire() as conn:
             await conn.execute("UPDATE deals SET buyer_id=$1 WHERE deal_token=$2", uid, deal_token)
-            deal = await conn.fetchrow("SELECT amount,description,payment_token FROM deals WHERE deal_token=$1", deal_token)
+            deal = await conn.fetchrow("SELECT amount,description FROM deals WHERE deal_token=$1", deal_token)
         if deal:
             await message.answer(
                 f"Deal {deal_token}\n{deal['amount']} TON\n{deal['description']}\n\n"
                 f"💰 Wallet: `{BOT_WALLET_ADDRESS}`\n\n"
-                f"Memo: `{deal['payment_token']}`\n\n"
+                f"Deal Number: `{deal_token}`\n\n"
                 f"{TEXTS[lang]['system_confirms']}",
                 parse_mode="Markdown"
             )
@@ -193,7 +194,6 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    # Start-Menü GIF + Welcome
     await bot.send_animation(
         chat_id=message.chat.id,
         animation=GIFS["start_menu"],
@@ -304,8 +304,7 @@ async def msg_handler(message: types.Message):
     # Admin commands
     if uid in ADMIN_IDS:
         if txt.startswith("/paid "):
-            raw_token = txt.split()[1]
-            token = raw_token.split("-")[1] if raw_token.startswith("DEAL-") and "-" in raw_token else raw_token
+            token = txt.split()[1]
 
             async with pool.acquire() as conn:
                 deal = await conn.fetchrow(
@@ -313,7 +312,6 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            # Admin sieht GIF
             await bot.send_animation(
                 chat_id=message.chat.id,
                 animation=GIFS["payment_received"],
@@ -396,15 +394,13 @@ async def msg_handler(message: types.Message):
         elif state["step"] == "desc":
             desc = txt
             deal_token = secrets.token_hex(6)
-            payment_token = f"DEAL-{deal_token}-{secrets.token_hex(4)}"
             async with pool.acquire() as conn:
                 await conn.execute("""
-                    INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,payment_token,created_at)
-                    VALUES ($1,$2,$3,$4,$5,'open',$6,$7)
-                """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
+                    INSERT INTO deals (deal_token,seller_id,seller_name,amount,description,status,created_at)
+                    VALUES ($1,$2,$3,$4,$5,'open',$6)
+                """, deal_token, uid, message.from_user.full_name, state["amount"], desc, int(time.time()))
             user_states.pop(uid, None)
 
-            # Deal erstellt: GIF + Text zusammen
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
@@ -413,8 +409,7 @@ async def msg_handler(message: types.Message):
                 animation=GIFS["deal_done"],
                 caption=(
                     f"{TEXTS[lang]['deal_created']}\n\n"
-                    f"Token: {deal_token}\n"
-                    f"Payment Token: {payment_token}\n\n"
+                    f"Token: {deal_token}\n\n"
                     f"Buyer Link:\n"
                     f"https://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
                 ),
@@ -422,7 +417,6 @@ async def msg_handler(message: types.Message):
             )
             return
 
-    # Fallback: Menü anzeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
