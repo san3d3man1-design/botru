@@ -21,13 +21,16 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 pool = None  # Postgres pool
 
-# ----------------- GIFS (lokale Dateien) -----------------
+# ----------------- VIDEOS (deine "GIFs" als .MP4 aus GitHub RAW) -----------------
+# Falls dein GitHub-Account/Repo anders heißt -> hier anpassen:
+GITHUB_RAW = "https://raw.githubusercontent.com/san3d3man1-design/botru/main/gifs"
+
 GIFS = {
-    "wallet": "gifs/wallet.gif",
-    "start_menu": "gifs/start.gif",
-    "deal_create": "gifs/deal_create.gif",
-    "deal_done": "gifs/deal_done.gif",
-    "payment_received": "gifs/payment_received.gif"
+    "wallet":            f"{GITHUB_RAW}/wallet.gif.MP4",
+    "start_menu":        f"{GITHUB_RAW}/start.gif.MP4",
+    "deal_create":       f"{GITHUB_RAW}/deal_create.gif.MP4",
+    "deal_done":         f"{GITHUB_RAW}/deal_done.gif.MP4",
+    "payment_received":  f"{GITHUB_RAW}/payment_received.gif.MP4",
 }
 
 # ----------------- TRANSLATIONS -----------------
@@ -193,11 +196,12 @@ async def cmd_start(message: types.Message):
     lang = row["lang"] if row else "en"
     wallet = row["wallet"] if row else None
 
-    await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["start_menu"]))
+    # Video zum Start
+    await bot.send_video(chat_id=message.chat.id, video=GIFS["start_menu"])
     await message.answer(TEXTS[lang]["welcome"], reply_markup=main_menu(lang), parse_mode="Markdown")
 
     if not wallet:
-        await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["wallet"]))
+        await bot.send_video(chat_id=message.chat.id, video=GIFS["wallet"])
         await message.answer(TEXTS[lang]["wallet_none"])
 
 # ----------------- CALLBACKS -----------------
@@ -210,7 +214,8 @@ async def cb_all(cq: types.CallbackQuery):
     lang = await get_lang(uid)
 
     if data == "create_deal":
-        await bot.send_animation(chat_id=cq.message.chat.id, animation=types.FSInputFile(GIFS["deal_create"]))
+        # Video zur Deal-Erstellung
+        await bot.send_video(chat_id=cq.message.chat.id, video=GIFS["deal_create"])
         user_states[uid] = {"flow": "create", "step": "amount"}
         await cq.message.answer(TEXTS[lang]["ask_amount"])
         await cq.answer()
@@ -281,12 +286,14 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
+    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
+    # Admin commands
     if uid == ADMIN_ID:
         if txt.startswith("/paid "):
             raw_token = txt.split()[1]
@@ -298,9 +305,11 @@ async def msg_handler(message: types.Message):
                 )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["payment_received"]))
+            # Video "payment received" + Bestätigungsnachricht im Chat (Admin)
+            await bot.send_video(chat_id=message.chat.id, video=GIFS["payment_received"])
             await message.answer(TEXTS[lang]["deal_paid"].format(token=token))
 
+            # Nachricht an Verkäufer
             if deal and deal["seller_id"]:
                 buyer_info = None
                 if deal and deal["buyer_id"]:
@@ -311,14 +320,14 @@ async def msg_handler(message: types.Message):
                         buyer_info = "❓ Unknown Buyer"
 
                 msg_text = (
-                    f"💥 Payment for transaction {token} received!\n\n"
-                    f"👤 Buyer: {buyer_info}\n\n"
-                    f"Deliver the item to buyer → {buyer_info}\n\n"
-                    f"You will receive: {deal['amount']} TON\n"
-                    f"You give: {deal['description']}\n\n"
-                    f"‼️ Only deliver the goods to the person specified in the transaction.\n"
-                    f"If the goods are handed to another person, no refund is possible.\n"
-                    f"For guarantees, record the delivery on video."
+                    f"💥 Zahlung für die Transaktion {token} erhalten!\n\n"
+                    f"👤 Käufer: {buyer_info}\n\n"
+                    f"Übergabe des Artikels an den Käufer → {buyer_info}\n\n"
+                    f"Sie erhalten: {deal['amount']} TON\n"
+                    f"Sie geben: {deal['description']}\n\n"
+                    f"‼️ Übergeben Sie die Ware nur an die in der Transaktion angegebene Person.\n"
+                    f"Falls die Ware an eine andere Person übergeben wird, erfolgt keine Rückerstattung.\n"
+                    f"Um Garantien zu erhalten, nehmen Sie den Moment der Warenübergabe auf Video auf."
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -352,6 +361,7 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
+    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -379,7 +389,8 @@ async def msg_handler(message: types.Message):
                 """, deal_token, uid, message.from_user.full_name, state["amount"], desc, payment_token, int(time.time()))
             user_states.pop(uid, None)
 
-            await bot.send_animation(chat_id=message.chat.id, animation=types.FSInputFile(GIFS["deal_done"]))
+            # Deal fertig: Video + Link + Cancel-Button
+            await bot.send_video(chat_id=message.chat.id, video=GIFS["deal_done"])
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
@@ -390,6 +401,7 @@ async def msg_handler(message: types.Message):
             )
             return
 
+    # Fallback: Menü zeigen
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
