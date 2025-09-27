@@ -76,6 +76,9 @@ TEXTS = {
             "💰 Referral earnings: 0.00 TON\n"
             "40% of bot fees"
         ),
+
+        "btn_tonkeeper": "🔗 Open in Tonkeeper",
+        "joined_deal": "👤 User {user} ({uid}) joined deal #{token}\n• Successful deals: 63"
     },
     "ru": {
         "welcome": (
@@ -124,6 +127,9 @@ TEXTS = {
             "💰 Заработано: 0.00 TON\n"
             "40% от комиссий бота"
         ),
+
+        "btn_tonkeeper": "🔗 Открыть в Tonkeeper",
+        "joined_deal": "👤 Пользователь {user} ({uid}) присоединился к сделке #{token}\n• Успешных сделок: 63"
     }
 }
 
@@ -184,22 +190,48 @@ async def start_deeplink(message: types.Message, command: CommandStart):
         async with pool.acquire() as conn:
             await conn.execute("UPDATE deals SET buyer_id=$1 WHERE deal_token=$2", uid, deal_token)
             deal = await conn.fetchrow(
-                "SELECT amount,description FROM deals WHERE deal_token=$1", deal_token
+                "SELECT amount,description,seller_id FROM deals WHERE deal_token=$1", deal_token
             )
         if not deal:
             await message.answer(TEXTS[lang]["deal_not_found"]); return
 
+        amount = deal['amount']
+
+        # Käufer Nachricht
         text = (
             f"Deal <b>{deal_token}</b>\n"
-            f"<b>{deal['amount']}</b> TON\n"
+            f"<b>{amount}</b> TON\n"
             f"{deal['description']}\n\n"
             f"Send <b>exactly</b> to:\n<code>{BOT_WALLET_ADDRESS}</code>\n\n"
             f"{TEXTS[lang]['system_confirms']}"
         )
-        await bot.send_photo(message.chat.id, IMAGE_ID, caption=text, parse_mode="HTML")
+        tonkeeper_url = (
+            f"ton://transfer/{BOT_WALLET_ADDRESS}"
+            f"?amount={amount}&text={deal_token}"
+        )
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=TEXTS[lang]["btn_tonkeeper"], url=tonkeeper_url)]
+        ])
+        await bot.send_photo(
+            message.chat.id,
+            IMAGE_ID,
+            caption=text,
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+
+        # Verkäufer Benachrichtigung
+        if deal["seller_id"]:
+            seller_lang = await get_lang(deal["seller_id"])
+            user = f"@{message.from_user.username}" if message.from_user.username else message.from_user.full_name
+            notify_text = TEXTS[seller_lang]["joined_deal"].format(
+                user=user, uid=uid, token=deal_token
+            )
+            await bot.send_message(deal["seller_id"], notify_text)
+
         return
 
-    # Andernfalls normale /start
+    # Normales /start
     await cmd_start(message)
 
 @dp.message(Command("start"))
