@@ -33,91 +33,59 @@ GIFS = {
 
 # ----------------- TRANSLATIONS -----------------
 TEXTS = {
-    "ru": {
-        "welcome": (
-            "👋 **Добро пожаловать!**\n\n"
-            "💼 Надёжный сервис для безопасных сделок!\n"
-            "✨ Автоматизировано, быстро и удобно!\n\n"
-            "🔷 Комиссия сервиса: всего 3 %\n"
-            "🔷 Поддержка 24/7\n"
-            "🔷 Отзывы пользователей: @tonundrwrld\n\n"
-            "💌❤️ Теперь ваши сделки под защитой! 🛡️"
-        ),
-        "btn_wallet": "Добавить/Изменить кошелёк",
-        "btn_deal": "Создать сделку",
-        "btn_ref": "Реферальная ссылка",
-        "btn_lang": "Изменить язык",
-        "btn_support": "Поддержка",
-
-        "new_deal": "Новая сделка",
-        "my_deals": "Мои сделки",
-        "my_wallet": "Мой кошелёк",
-        "settings": "Настройки",
-        "menu": "Главное меню:",
-        "choose_lang": "Выберите язык:",
-        "lang_menu": "Язык",
-        "no_deals": "У вас ещё нет сделок.",
-        "ask_amount": "Введите сумму в TON для этой сделки.\n\nПример: `10.5`",
-        "ask_desc": "Теперь введите краткое описание подарка / NFT / услуги, которую вы продаёте.",
-        "deal_created": "Сделка успешно создана!",
-        "deal_paid": "Платёж по сделке {token} подтверждён.",
-        "deal_received": "Покупатель подтвердил получение по сделке {token}.",
-        "deal_payout": "Выплата по сделке {token} завершена.\n\nСумма: {amount} TON\nКомиссия: {fee} TON",
-        "deal_cancel": "Сделка {token} отменена.",
-        "system_confirms": "Система подтвердит автоматически после получения платежа.",
-        "deal_not_found": "Сделка не найдена.",
-        "wallet_set": "Ваш TON кошелёк сохранён:\n`{wallet}`",
-        "wallet_current": "Текущий кошелёк:\n`{wallet}`",
-        "wallet_none": "Чтобы пользоваться ботом, необходимо привязать TON кошелёк.",
-        "seller_sent": (
-            "Покупатель подтвердил получение товара. 📦\n"
-            "Сделка успешно завершена.\n"
-            "Скоро вы получите деньги на сохранённый адрес кошелька. 💸"
-        ),
-        "btn_seller_delivered": "Я доставил товар",
-    },
     "en": {
         "welcome": (
             "👋 **Welcome!**\n\n"
             "💼 Reliable service for secure transactions!\n"
             "✨ Automated, fast, and hassle-free!\n\n"
-            "🔷 Service fee: only 3 %\n"
-            "🔷 Support 24/7\n"
-            "🔷 User reviews: @tonundrwrld\n\n"
+            f"🔷 Service fee: {FEE_PERCENT}%\n"
+            "🔷 Support 24/7\n\n"
             "💌❤️ Now your transactions are protected! 🛡️"
         ),
-        "btn_wallet": "Add/Change Wallet",
-        "btn_deal": "Create a Deal",
-        "btn_ref": "Referral Link",
-        "btn_lang": "Change Language",
-        "btn_support": "Support",
-
-        "new_deal": "New Deal",
-        "my_deals": "My Deals",
-        "my_wallet": "My wallet",
-        "settings": "Settings",
-        "menu": "Main Menu:",
+        "menu": "📋 Main Menu:",
         "choose_lang": "Please choose your language:",
-        "lang_menu": "Language",
-        "no_deals": "You don’t have any deals yet.",
-        "ask_amount": "Please enter the amount in TON for this deal.\n\nExample: `10.5`",
-        "ask_desc": "Now enter a short description of the gift / NFT / service you are selling.",
-        "deal_created": "Deal successfully created!",
-        "deal_paid": "Payment for deal {token} confirmed.",
-        "deal_received": "Buyer confirmed receipt for deal {token}.",
-        "deal_payout": "Payout for deal {token} completed.\n\nAmount: {amount} TON\nFee: {fee} TON",
-        "deal_cancel": "Deal {token} was cancelled.",
-        "system_confirms": "The system will confirm automatically once payment is received.",
-        "deal_not_found": "Deal not found.",
-        "wallet_set": "Your TON wallet has been saved:\n`{wallet}`",
-        "wallet_current": "Current wallet:\n`{wallet}`",
-        "wallet_none": "To use this bot, you need to link your TON wallet.",
-        "seller_sent": (
-            "The buyer has confirmed receipt of the item. 📦\n"
-            "The deal has been successfully completed.\n"
-            "You will soon receive your money at the saved wallet address. 💸"
+        "no_deals": "ℹ️ You don’t have any deals yet.",
+        "ask_amount": "💰 Please enter the **amount in TON** for this deal.\n\nExample: `10.5`",
+        "ask_desc": "📝 Great!\n\nNow enter a **short description** of the gift / NFT / service you are selling.",
+        "deal_created": "✅ Deal successfully created!",
+        "deal_paid": "✅ Payment for deal {token} confirmed.",
+        "deal_received": "📦 Buyer confirmed receipt for deal {token}.",
+        "deal_payout": "💸 Payout for deal {token} completed.\n\nAmount: {amount} TON\nFee: {fee} TON",
+        "deal_cancel": "❌ Deal {token} was cancelled.",
+        "system_confirms": "⏳ The system will confirm automatically once payment is received.",
+        "deal_not_found": "⚠️ Deal not found.",
+        "wallet_set": "✅ Your TON wallet has been saved:\n`{wallet}`",
+        "wallet_current": "👛 *Current wallet:*\n`{wallet}`",
+        "wallet_none": "ℹ️ To use this bot, you need to link your TON wallet.",
+        "seller_sent": "✅ The buyer has confirmed receipt. You will receive your payout soon 💸",
+        "btn_seller_delivered": "📦 I have delivered the item",
+    },
+    "ru": {
+        "welcome": (
+            "👋 **Добро пожаловать!**\n\n"
+            "💼 Надежный сервис для безопасных сделок!\n"
+            "✨ Автоматизировано, быстро и удобно!\n\n"
+            f"🔷 Комиссия сервиса: {FEE_PERCENT}%\n"
+            "🔷 Поддержка 24/7\n\n"
+            "💌❤️ Ваши транзакции защищены! 🛡️"
         ),
-        "btn_seller_delivered": "I have delivered the item",
+        "menu": "📋 Главное меню:",
+        "choose_lang": "Пожалуйста, выберите язык:",
+        "no_deals": "ℹ️ У вас ещё нет сделок.",
+        "ask_amount": "💰 Введите **сумму в TON** для этой сделки.\n\nПример: `10.5`",
+        "ask_desc": "📝 Отлично!\n\nТеперь введите **краткое описание** подарка / NFT / услуги.",
+        "deal_created": "✅ Сделка успешно создана!",
+        "deal_paid": "✅ Платёж за сделку {token} подтвержден.",
+        "deal_received": "📦 Покупатель подтвердил получение по сделке {token}.",
+        "deal_payout": "💸 Выплата за сделку {token} завершена.\n\nСумма: {amount} TON\nКомиссия: {fee} TON",
+        "deal_cancel": "❌ Сделка {token} отменена.",
+        "system_confirms": "⏳ Система подтвердит автоматически после получения платежа.",
+        "deal_not_found": "⚠️ Сделка не найдена.",
+        "wallet_set": "✅ Ваш TON кошелёк сохранён:\n`{wallet}`",
+        "wallet_current": "👛 *Текущий кошелёк:*\n`{wallet}`",
+        "wallet_none": "ℹ️ Чтобы использовать бота, необходимо привязать TON кошелёк.",
+        "seller_sent": "✅ Покупатель подтвердил получение. Вы скоро получите выплату 💸",
+        "btn_seller_delivered": "📦 Я доставил товар",
     }
 }
 
@@ -156,13 +124,12 @@ async def get_lang(uid):
     return row["lang"] if row else "ru"
 
 def main_menu(lang="ru"):
-    t = TEXTS.get(lang, TEXTS["ru"])
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["btn_wallet"], callback_data="my_wallet")],
-        [InlineKeyboardButton(text=t["btn_deal"], callback_data="create_deal")],
-        [InlineKeyboardButton(text=t["btn_ref"], callback_data="referral_link")],
-        [InlineKeyboardButton(text=t["btn_lang"], callback_data="change_lang")],
-        [InlineKeyboardButton(text=t["btn_support"], url="https://forms.gle/4kN2r57SJiPrxBjf9")]
+        [InlineKeyboardButton(text="🌐 Add/Change Wallet", callback_data="my_wallet")],
+        [InlineKeyboardButton(text="📄 Create a Deal", callback_data="create_deal")],
+        [InlineKeyboardButton(text="✏️ Referral Link", callback_data="referral_link")],
+        [InlineKeyboardButton(text="🌍 Change Language", callback_data="change_lang")],
+        [InlineKeyboardButton(text="📞 Support", url="https://forms.gle/4kN2r57SJiPrxBjf9")]
     ])
     return kb
 
@@ -228,25 +195,29 @@ async def cb_all(cq: types.CallbackQuery):
     uid = cq.from_user.id
     lang = await get_lang(uid)
 
-    # Settings menu → Language
     if data == "change_lang":
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Русский", callback_data="setlang:ru")],
-            [InlineKeyboardButton(text="English", callback_data="setlang:en")]
+            [InlineKeyboardButton(text="русский", callback_data="setlang:ru")],
+            [InlineKeyboardButton(text="english", callback_data="setlang:en")]
         ])
         await cq.message.answer(TEXTS[lang]["choose_lang"], reply_markup=kb)
         await cq.answer()
         return
 
-    if data.startswith("setlang:"):
-        new_lang = data.split(":")[1]
+    if data == "setlang:ru":
         async with pool.acquire() as conn:
-            await conn.execute("UPDATE users SET lang=$1 WHERE tg_id=$2", new_lang, uid)
-        await cq.message.answer(TEXTS[new_lang]["menu"], reply_markup=main_menu(new_lang))
+            await conn.execute("UPDATE users SET lang='ru' WHERE tg_id=$1", uid)
+        await cq.message.answer(TEXTS["ru"]["menu"], reply_markup=main_menu("ru"))
         await cq.answer()
         return
 
-    # Referral link
+    if data == "setlang:en":
+        async with pool.acquire() as conn:
+            await conn.execute("UPDATE users SET lang='en' WHERE tg_id=$1", uid)
+        await cq.message.answer(TEXTS["en"]["menu"], reply_markup=main_menu("en"))
+        await cq.answer()
+        return
+
     if data == "referral_link":
         msg = (
             "🔗 Your referral link:\n\n"
@@ -259,7 +230,6 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
-    # Create deal
     if data == "create_deal":
         user_states[uid] = {"flow": "create", "step": "amount"}
         await bot.send_animation(
@@ -278,21 +248,6 @@ async def cb_all(cq: types.CallbackQuery):
             await cq.message.answer(TEXTS[lang]["wallet_current"].format(wallet=row["wallet"]), parse_mode="Markdown")
         else:
             await cq.message.answer(TEXTS[lang]["wallet_none"])
-        await cq.answer()
-        return
-
-    if data == "my_deals":
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1", uid
-            )
-        if not rows:
-            await cq.message.answer(TEXTS[lang]["no_deals"])
-        else:
-            for r in rows:
-                await cq.message.answer(
-                    f"Deal {r['deal_token']}\n{r['amount']} TON\n{r['description']}\nStatus: {r['status']}"
-                )
         await cq.answer()
         return
 
@@ -327,14 +282,12 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
-    # Wallet speichern
     if txt.startswith("UQ") and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
-    # Admin commands
     if uid in ADMIN_IDS:
         if txt.startswith("/paid "):
             token = txt.split()[1]
@@ -360,13 +313,14 @@ async def msg_handler(message: types.Message):
                         buyer_info = "❓ Unknown Buyer"
 
                 msg_text = (
-                    f"{TEXTS[lang]['deal_paid'].format(token=token)}\n\n"
+                    f"💥 {TEXTS[lang]['deal_paid'].format(token=token)}\n\n"
                     f"👤 Buyer: {buyer_info}\n\n"
                     f"Deliver item to → {buyer_info}\n\n"
                     f"You will receive: {deal['amount']} TON\n"
                     f"You give: {deal['description']}\n\n"
-                    f"‼️ Give goods only to the specified buyer.\n"
-                    f"Better to record a video of the delivery."
+                    f"‼️ Only hand over the goods to the person specified in the transaction.\n"
+                    f"If you give them to someone else, no refund will be provided.\n"
+                    f"To be safe, record a video of the delivery."
                 )
 
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -403,7 +357,6 @@ async def msg_handler(message: types.Message):
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
-    # Deal creation flow
     state = user_states.get(uid)
     if state and state["flow"] == "create":
         if state["step"] == "amount":
@@ -446,7 +399,6 @@ async def msg_handler(message: types.Message):
             )
             return
 
-    # Fallback
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
