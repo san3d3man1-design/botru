@@ -304,28 +304,6 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
-# ----------------- ADMIN: GET PHOTO / GIF FILE ID -----------------
-@dp.message()
-async def handle_photos_and_admin_cmds(message: types.Message):
-    uid = message.from_user.id
-
-    # 📸 Admin sendet ein Foto → File ID zurückgeben
-    if message.photo and uid in ADMIN_IDS:
-        largest_photo = message.photo[-1]  # beste Qualität
-        await message.answer(
-            f"📸 File ID:\n`{largest_photo.file_id}`",
-            parse_mode="Markdown"
-        )
-        return
-
-    # 🎞 Admin sendet ein GIF/Animation → File ID zurückgeben
-    if message.animation and uid in ADMIN_IDS:
-        await message.answer(
-            f"🎞 Animation File ID:\n`{message.animation.file_id}`",
-            parse_mode="Markdown"
-        )
-        return
-
 # ----------------- MESSAGE HANDLER -----------------
 @dp.message()
 async def msg_handler(message: types.Message):
