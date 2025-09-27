@@ -334,56 +334,54 @@ async def msg_handler(message: types.Message):
         token = parts[1] if len(parts) > 1 else None
 
         if cmd == "/paid" and token:
-    async with pool.acquire() as conn:
-        deal = await conn.fetchrow(
-            "SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token
-        )
-        if not deal:
-            await message.answer(TEXTS[lang]["deal_not_found"]); return
-        await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
+            async with pool.acquire() as conn:
+                deal = await conn.fetchrow(
+                    "SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token
+                )
+                if not deal:
+                    await message.answer(TEXTS[lang]["deal_not_found"]); return
+                await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-    # Admin Bestätigung (in Admin-Sprache)
-    await bot.send_photo(
-        chat_id=message.chat.id,
-        photo=IMAGE_ID,
-        caption=TEXTS[lang]["deal_paid"].format(token=token),
-        parse_mode="HTML"
-    )
+            # Admin Bestätigung
+            await bot.send_photo(
+                chat_id=message.chat.id,
+                photo=IMAGE_ID,
+                caption=TEXTS[lang]["deal_paid"].format(token=token),
+                parse_mode="HTML"
+            )
 
-    # Sprache des Verkäufers holen
-    seller_lang = await get_lang(deal["seller_id"]) if deal["seller_id"] else "ru"
+            # Nachricht an Verkäufer (großer Text + Button)
+            if deal and deal["seller_id"]:
+                try:
+                    buyer_info = None
+                    if deal["buyer_id"]:
+                        user = await bot.get_chat(deal["buyer_id"])
+                        buyer_info = f"@{user.username}" if user.username else user.full_name
+                except Exception:
+                    buyer_info = "❓ Unknown Buyer"
 
-    # Nachricht an Verkäufer (in seiner Sprache!)
-    if deal and deal["seller_id"]:
-        try:
-            buyer_info = None
-            if deal["buyer_id"]:
-                user = await bot.get_chat(deal["buyer_id"])
-                buyer_info = f"@{user.username}" if user.username else user.full_name
-        except Exception:
-            buyer_info = "❓ Unknown Buyer"
+                big_text = (
+                    f"💥 <b>{TEXTS[lang]['deal_paid'].format(token=token)}</b>\n\n"
+                    f"👤 <b>Buyer:</b> {buyer_info}\n\n"
+                    f"💸 <b>You will receive:</b> {deal['amount']} TON\n"
+                    f"🎁 <b>You give:</b> {deal['description']}\n\n"
+                    f"‼️ <b>Hand over the goods only to the specified buyer.</b>\n"
+                    f"If you give them to someone else, no refund will be provided.\n"
+                    f"For your safety, record a video of the delivery."
+                )
 
-        big_text = (
-            f"💥 <b>{TEXTS[seller_lang]['deal_paid'].format(token=token)}</b>\n\n"
-            f"👤 <b>Buyer:</b> {buyer_info}\n\n"
-            f"💸 <b>You will receive:</b> {deal['amount']} TON\n"
-            f"🎁 <b>You give:</b> {deal['description']}\n\n"
-            f"‼️ <b>Hand over the goods only to the specified buyer.</b>\n"
-            f"If you give them to someone else, no refund will be provided.\n"
-            f"For your safety, record a video of the delivery."
-        )
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text=TEXTS[lang]["btn_seller_delivered"], callback_data=f"seller_sent:{token}")]
+                ])
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=TEXTS[seller_lang]["btn_seller_delivered"], callback_data=f"seller_sent:{token}")]
-        ])
-
-        await bot.send_photo(
-            chat_id=deal["seller_id"],
-            photo=IMAGE_ID,
-            caption=big_text,
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
+                try:
+                    await bot.send_photo(
+                        chat_id=deal["seller_id"],
+                        photo=IMAGE_ID,
+                        caption=big_text,
+                        reply_markup=kb,
+                        parse_mode="HTML"
+                    )
                 except Exception as e:
                     await message.answer(f"⚠️ Could not notify seller: {e}")
 
