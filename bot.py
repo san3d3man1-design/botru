@@ -12,114 +12,82 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ----------------- ENV -----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "0").split(",")]
+ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "0").split(",") if x.strip()]
 BOT_WALLET_ADDRESS = os.getenv("BOT_WALLET_ADDRESS", "YOUR_WALLET")
 FEE_PERCENT = Decimal(os.getenv("FEE_PERCENT") or "3.0")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# ----------------- TELEGRAM -----------------
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
-pool = None
+pool: asyncpg.Pool | None = None
 
-# ----------------- PHOTO -----------------
-PHOTO_ID = "AgACAgUAAxkBAAIG7WjX6nozeFX2axWJ2a6SUsZzlYUqAAK2wTEblxDAVvklwsZITFijAQADAgADeAADNgQ"
+# ----------------- CONSTANT IMAGE (statt GIFs überall) -----------------
+MAIN_IMAGE = "AgACAgUAAxkBAAIG7WjX6nozeFX2axWJ2a6SUsZzlYUqAAK2wTEblxDAVvklwsZITFijAQADAgADeAADNgQ"
 
-# ----------------- TRANSLATIONS -----------------
+# ----------------- TEXTS -----------------
 TEXTS = {
+    "en": {
+        "welcome": (
+            "👋 Welcome!\n\n"
+            "💼 Reliable service for secure transactions!\n"
+            "✨ Automated, fast, and hassle-free!\n\n"
+            "🔷 Service fee: only 3 %\n"
+            "🔷 Support 24/7\n\n"
+            "🛡️ Your transactions are protected!"
+        ),
+        "menu": "📋 Main Menu:",
+        "choose_lang": "Please choose your language:",
+        "no_deals": "ℹ️ You don’t have any deals yet.",
+        "ask_amount": "💰 Enter the **amount in TON** (e.g. `10.5`).",
+        "ask_desc": "📝 Great! Now enter a **short description** of the item/NFT/service.",
+        "deal_created": "✅ Deal successfully created!",
+        "deal_paid": "✅ Payment for deal {token} confirmed.",
+        "deal_cancel": "❌ Deal {token} was cancelled.",
+        "wallet_set": "✅ Your TON wallet has been saved:\n`{wallet}`",
+        "wallet_current": "👛 Current wallet:\n`{wallet}`",
+        "wallet_none": "ℹ️ You have not added a TON wallet yet.",
+        "seller_sent": "✅ The buyer confirmed receipt. You will receive your payout soon 💸",
+        "deal_payout": "💸 Payout for deal {token} completed.\n\nAmount: {amount} TON\nFee: {fee} TON",
+        "deal_not_found": "⚠️ Deal not found.",
+        "system_confirms": "⏳ The system will confirm automatically once payment is received.",
+        "btn_seller_delivered": "📦 I have delivered the item",
+        "wallet_menu": "Add/Change Wallet",
+        "new_deal": "Create a Deal",
+        "referrals": "Referral Link",
+        "lang_menu": "Change Language",
+    },
     "ru": {
         "welcome": (
             "👋 Добро пожаловать!\n\n"
             "💼 Надежный сервис для безопасных сделок!\n"
             "✨ Автоматически, быстро и удобно!\n\n"
             "🔷 Комиссия сервиса: 3 %\n"
-            "🔷 Поддержка 24/7: /support\n\n"
+            "🔷 Поддержка 24/7\n\n"
             "🛡️ Ваши транзакции защищены!"
         ),
-        "new_deal": "📄 Новая сделка",
-        "my_deals": "🔎 Мои сделки",
-        "my_wallet": "💰 Мой кошелек",
-        "settings": "⚙️ Настройки",
-        "referral": "👥 Рефералы",
-        "support": "🆘 Поддержка",
         "menu": "📋 Главное меню:",
-        "choose_lang": "🌐 Пожалуйста, выберите язык:",
-        "lang_menu": "🌐 Язык",
+        "choose_lang": "Пожалуйста, выберите язык:",
         "no_deals": "ℹ️ У вас пока нет сделок.",
-        "ask_amount": "💰 Введите сумму в TON для этой сделки.\n\nПример: `10.5`",
-        "ask_desc": "📝 Отлично!\n\nТеперь введите короткое описание товара / NFT / услуги.",
+        "ask_amount": "💰 Введите сумму в TON (например `10.5`).",
+        "ask_desc": "📝 Отлично! Теперь введите короткое описание.",
         "deal_created": "✅ Сделка успешно создана!",
-        "deal_paid": "✅ Оплата сделки {token} подтверждена.",
-        "deal_received": "📦 Покупатель подтвердил получение сделки {token}.",
-        "deal_payout": "💸 Выплата по сделке {token} завершена.\n\nСумма: {amount} TON\nКомиссия: {fee} TON",
+        "deal_paid": "✅ Оплата по сделке {token} подтверждена.",
         "deal_cancel": "❌ Сделка {token} отменена.",
-        "system_confirms": "⏳ Система автоматически подтвердит получение оплаты.",
-        "deal_not_found": "⚠️ Сделка не найдена.",
-        "wallet_set": "✅ Ваш TON кошелек сохранен:\n`{wallet}`",
+        "wallet_set": "✅ Ваш TON-кошелек сохранён:\n`{wallet}`",
         "wallet_current": "👛 Текущий кошелек:\n`{wallet}`",
-        "wallet_none": "ℹ️ У вас пока не добавлен TON кошелек.",
-        "seller_sent": (
-            "✅ Спасибо, что используете нашего бота!\n\n"
-            "Покупатель подтвердил получение. 📦\n"
-            "Сделка завершена.\n"
-            "Скоро вы получите выплату на сохраненный кошелек. 💸"
-        ),
+        "wallet_none": "ℹ️ У вас пока не добавлен TON-кошелек.",
+        "seller_sent": "✅ Покупатель подтвердил получение. Выплата скоро будет отправлена 💸",
+        "deal_payout": "💸 Выплата по сделке {token} завершена.\n\nСумма: {amount} TON\nКомиссия: {fee} TON",
+        "deal_not_found": "⚠️ Сделка не найдена.",
+        "system_confirms": "⏳ Система подтвердит автоматически после получения оплаты.",
         "btn_seller_delivered": "📦 Я доставил товар",
-        "referral_text": (
-            "🔗 Ваша реферальная ссылка:\n\n"
-            "https://t.me/GiftElf_Robot?start=ref=UQBgh8roDAKf3tV3G_E8z0NAVYWEZ-Quut_AWGcIECGcfn4z\n\n"
-            "👥 Количество рефералов: 1\n"
-            "💰 Заработано: 0.00 TON\n"
-            "40% от комиссии сервиса"
-        ),
-        "support_text": "🆘 Поддержка доступна по ссылке:\nhttps://forms.gle/4kN2r57SJiPrxBjf9",
-    },
-    "en": {
-        "welcome": (
-            "👋 Welcome!\n\n"
-            "💼 Reliable service for secure deals!\n"
-            "✨ Automated, fast, and easy!\n\n"
-            "🔷 Service fee: 3 %\n"
-            "🔷 Support 24/7: /support\n\n"
-            "🛡️ Your transactions are protected!"
-        ),
-        "new_deal": "📄 New Deal",
-        "my_deals": "🔎 My Deals",
-        "my_wallet": "💰 My Wallet",
-        "settings": "⚙️ Settings",
-        "referral": "👥 Referrals",
-        "support": "🆘 Support",
-        "menu": "📋 Main Menu:",
-        "choose_lang": "🌐 Please choose your language:",
-        "lang_menu": "🌐 Language",
-        "no_deals": "ℹ️ You don’t have any deals yet.",
-        "ask_amount": "💰 Enter the amount in TON for this deal.\n\nExample: `10.5`",
-        "ask_desc": "📝 Great!\n\nNow enter a short description of the item / NFT / service.",
-        "deal_created": "✅ Deal created successfully!",
-        "deal_paid": "✅ Payment for deal {token} confirmed.",
-        "deal_received": "📦 Buyer confirmed receipt for deal {token}.",
-        "deal_payout": "💸 Payout for deal {token} completed.\n\nAmount: {amount} TON\nFee: {fee} TON",
-        "deal_cancel": "❌ Deal {token} was cancelled.",
-        "system_confirms": "⏳ The system will confirm automatically once payment is received.",
-        "deal_not_found": "⚠️ Deal not found.",
-        "wallet_set": "✅ Your TON wallet has been saved:\n`{wallet}`",
-        "wallet_current": "👛 Current wallet:\n`{wallet}`",
-        "wallet_none": "ℹ️ You have not added a TON wallet yet.",
-        "seller_sent": (
-            "✅ Thank you for using our bot!\n\n"
-            "The buyer confirmed receipt. 📦\n"
-            "The deal has been completed.\n"
-            "You will soon receive your payout. 💸"
-        ),
-        "btn_seller_delivered": "📦 I delivered the item",
-        "referral_text": (
-            "🔗 Your referral link:\n\n"
-            "https://t.me/GiftElf_Robot?start=ref=UQBgh8roDAKf3tV3G_E8z0NAVYWEZ-Quut_AWGcIECGcfn4z\n\n"
-            "👥 Referral count: 1\n"
-            "💰 Referral earnings: 0.00 TON\n"
-            "40% of bot fees"
-        ),
-        "support_text": "🆘 Support is available here:\nhttps://forms.gle/4kN2r57SJiPrxBjf9",
+        "wallet_menu": "Добавить/Изменить кошелек",
+        "new_deal": "Создать сделку",
+        "referrals": "Реферальная ссылка",
+        "lang_menu": "Сменить язык",
     }
 }
 
@@ -152,20 +120,20 @@ async def init_db():
         """)
 
 # ----------------- HELPERS -----------------
-async def get_lang(uid):
+async def get_lang(uid: int) -> str:
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT lang FROM users WHERE tg_id=$1", uid)
-    return row["lang"] if row else "ru"
+    return (row["lang"] if row else "ru") or "ru"
 
-def main_menu(lang="ru"):
-    t = TEXTS[lang]
+def main_menu(lang: str = "ru") -> InlineKeyboardMarkup:
+    t = TEXTS.get(lang, TEXTS["ru"])
+    # EXACT emoji/text order per your request and Support is a URL button
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t["new_deal"], callback_data="create_deal")],
-        [InlineKeyboardButton(text=t["my_deals"], callback_data="my_deals")],
-        [InlineKeyboardButton(text=t["my_wallet"], callback_data="my_wallet")],
-        [InlineKeyboardButton(text=t["referral"], callback_data="referral")],
-        [InlineKeyboardButton(text=t["support"], callback_data="support")],
-        [InlineKeyboardButton(text=t["settings"], callback_data="settings")]
+        [InlineKeyboardButton(text="🪙 " + t["wallet_menu"], callback_data="my_wallet")],
+        [InlineKeyboardButton(text="📄 " + t["new_deal"], callback_data="create_deal")],
+        [InlineKeyboardButton(text="🧷 " + t["referrals"], callback_data="referral_link")],
+        [InlineKeyboardButton(text="🌐 " + t["lang_menu"], callback_data="change_lang")],
+        [InlineKeyboardButton(text="📞 Support", url="https://forms.gle/4kN2r57SJiPrxBjf9")]
     ])
     return kb
 
@@ -173,18 +141,26 @@ def main_menu(lang="ru"):
 @dp.message(CommandStart(deep_link=True))
 async def cmd_start_with_link(message: types.Message, command: CommandStart):
     uid = message.from_user.id
+    # Ensure user row exists (default ru)
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO users (tg_id,name,lang) VALUES ($1,$2,'ru') "
+            "ON CONFLICT (tg_id) DO UPDATE SET name=EXCLUDED.name",
+            uid, message.from_user.full_name
+        )
     lang = await get_lang(uid)
-    token = command.args
 
+    token = command.args
     if token and token.startswith("join_"):
         deal_token = token.replace("join_", "")
         async with pool.acquire() as conn:
             await conn.execute("UPDATE deals SET buyer_id=$1 WHERE deal_token=$2", uid, deal_token)
             deal = await conn.fetchrow("SELECT amount,description FROM deals WHERE deal_token=$1", deal_token)
+
         if deal:
             await bot.send_photo(
                 chat_id=message.chat.id,
-                photo=PHOTO_ID,
+                photo=MAIN_IMAGE,
                 caption=(
                     f"Deal {deal_token}\n{deal['amount']} TON\n{deal['description']}\n\n"
                     f"💰 Wallet: `{BOT_WALLET_ADDRESS}`\n\n"
@@ -200,26 +176,28 @@ async def cmd_start_with_link(message: types.Message, command: CommandStart):
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    uid = message.from_user.id
     async with pool.acquire() as conn:
         await conn.execute(
             "INSERT INTO users (tg_id,name,lang) VALUES ($1,$2,'ru') "
             "ON CONFLICT (tg_id) DO UPDATE SET name=EXCLUDED.name",
-            message.from_user.id, message.from_user.full_name
+            uid, message.from_user.full_name
         )
-        row = await conn.fetchrow("SELECT lang FROM users WHERE tg_id=$1", message.from_user.id)
+        row = await conn.fetchrow("SELECT lang FROM users WHERE tg_id=$1", uid)
 
     lang = row["lang"] if row else "ru"
 
+    # No wallet prompt here anymore (as requested)
     await bot.send_photo(
         chat_id=message.chat.id,
-        photo=PHOTO_ID,
+        photo=MAIN_IMAGE,
         caption=TEXTS[lang]["welcome"],
         reply_markup=main_menu(lang),
         parse_mode="Markdown"
     )
 
-# ----------------- CALLBACK HANDLER -----------------
-user_states = {}
+# ----------------- CALLBACKS -----------------
+user_states: dict[int, dict] = {}
 
 @dp.callback_query()
 async def cb_all(cq: types.CallbackQuery):
@@ -227,7 +205,8 @@ async def cb_all(cq: types.CallbackQuery):
     uid = cq.from_user.id
     lang = await get_lang(uid)
 
-    if data == "settings":
+    # Language menu (small, no emojis)
+    if data == "change_lang":
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="english", callback_data="setlang:en")],
             [InlineKeyboardButton(text="русский", callback_data="setlang:ru")]
@@ -244,23 +223,20 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
-    if data == "create_deal":
-        user_states[uid] = {"flow": "create", "step": "amount"}
-        await bot.send_photo(chat_id=cq.message.chat.id, photo=PHOTO_ID, caption=TEXTS[lang]["ask_amount"], parse_mode="Markdown")
+    # Referral: always fixed text & link, same for all
+    if data == "referral_link":
+        msg = (
+            "🔗 Your referral link:\n\n"
+            "https://t.me/GiftElf_Robot?start=ref=UQBgh8roDAKf3tV3G_E8z0NAVYWEZ-Quut_AWGcIECGcfn4z\n\n"
+            "👥 Referral count: 1\n"
+            "💰 Referral earnings: 0.00 TON\n"
+            "40% of bot fees"
+        )
+        await cq.message.answer(msg)
         await cq.answer()
         return
 
-    if data == "my_deals":
-        async with pool.acquire() as conn:
-            rows = await conn.fetch("SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1", uid)
-        if not rows:
-            await cq.message.answer(TEXTS[lang]["no_deals"])
-        else:
-            for r in rows:
-                await cq.message.answer(f"Deal {r['deal_token']}\n{r['amount']} TON\n{r['description']}\nStatus: {r['status']}")
-        await cq.answer()
-        return
-
+    # Wallet menu
     if data == "my_wallet":
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT wallet FROM users WHERE tg_id=$1", uid)
@@ -271,16 +247,36 @@ async def cb_all(cq: types.CallbackQuery):
         await cq.answer()
         return
 
-    if data == "referral":
-        await cq.message.answer(TEXTS[lang]["referral_text"])
+    # Create deal flow start
+    if data == "create_deal":
+        user_states[uid] = {"flow": "create", "step": "amount"}
+        await bot.send_photo(
+            chat_id=cq.message.chat.id,
+            photo=MAIN_IMAGE,
+            caption=TEXTS[lang]["ask_amount"],
+            parse_mode="Markdown"
+        )
         await cq.answer()
         return
 
-    if data == "support":
-        await cq.message.answer(TEXTS[lang]["support_text"])
+    # My deals listing (optional; not a button in your final menu, but you had it before)
+    if data == "my_deals":
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT deal_token,amount,description,status FROM deals WHERE seller_id=$1 OR buyer_id=$1 ORDER BY id DESC",
+                uid
+            )
+        if not rows:
+            await cq.message.answer(TEXTS[lang]["no_deals"])
+        else:
+            for r in rows:
+                await cq.message.answer(
+                    f"Deal {r['deal_token']}\n{r['amount']} TON\n{r['description']}\nStatus: {r['status']}"
+                )
         await cq.answer()
         return
 
+    # Cancel deal
     if data.startswith("cancel_deal:"):
         deal_token = data.split(":")[1]
         async with pool.acquire() as conn:
@@ -288,15 +284,16 @@ async def cb_all(cq: types.CallbackQuery):
             if not deal:
                 await cq.message.answer(TEXTS[lang]["deal_not_found"])
             elif deal["seller_id"] != uid:
-                await cq.message.answer("⚠️ Вы не владелец сделки.")
+                await cq.message.answer("⚠️ You are not the owner of this deal.")
             elif deal["status"] != "open":
-                await cq.message.answer("⚠️ Сделку больше нельзя отменить.")
+                await cq.message.answer("⚠️ Deal can no longer be cancelled.")
             else:
                 await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", deal_token)
-                await cq.message.edit_text(f"❌ Сделка {deal_token} отменена.")
+                await cq.message.edit_text(TEXTS[lang]["deal_cancel"].format(token=deal_token))
         await cq.answer()
         return
 
+    # Seller delivered confirmation
     if data.startswith("seller_sent:"):
         deal_token = data.split(":")[1]
         async with pool.acquire() as conn:
@@ -312,24 +309,32 @@ async def msg_handler(message: types.Message):
     txt = (message.text or "").strip()
     lang = await get_lang(uid)
 
-    if txt.startswith("UQ") and len(txt) > 30:
+    # Save wallet (simple pattern match)
+    if (txt.startswith("UQ") or txt.startswith("EQ")) and len(txt) > 30:
         async with pool.acquire() as conn:
             await conn.execute("UPDATE users SET wallet=$1 WHERE tg_id=$2", txt, uid)
         await message.answer(TEXTS[lang]["wallet_set"].format(wallet=txt), parse_mode="Markdown")
         return
 
+    # Admin commands
     if uid in ADMIN_IDS:
         if txt.startswith("/paid "):
-            token = txt.split()[1]
+            token = txt.split(maxsplit=1)[1]
             async with pool.acquire() as conn:
-                deal = await conn.fetchrow("SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token)
+                deal = await conn.fetchrow(
+                    "SELECT seller_id,buyer_id,amount,description FROM deals WHERE deal_token=$1", token
+                )
                 await conn.execute("UPDATE deals SET status='paid' WHERE deal_token=$1", token)
 
-            await bot.send_photo(chat_id=message.chat.id, photo=PHOTO_ID, caption=TEXTS[lang]["deal_paid"].format(token=token))
+            await bot.send_photo(
+                chat_id=message.chat.id,
+                photo=MAIN_IMAGE,
+                caption=TEXTS[lang]["deal_paid"].format(token=token)
+            )
 
             if deal and deal["seller_id"]:
                 buyer_info = None
-                if deal and deal["buyer_id"]:
+                if deal["buyer_id"]:
                     try:
                         user = await bot.get_chat(deal["buyer_id"])
                         buyer_info = f"@{user.username}" if user.username else user.full_name
@@ -339,24 +344,27 @@ async def msg_handler(message: types.Message):
                 msg_text = (
                     f"💥 {TEXTS[lang]['deal_paid'].format(token=token)}\n\n"
                     f"👤 Buyer: {buyer_info}\n\n"
-                    f"Deliver item to → {buyer_info}\n\n"
                     f"You will receive: {deal['amount']} TON\n"
                     f"You give: {deal['description']}\n\n"
-                    f"‼️ Deliver only to the specified buyer. Record delivery for safety."
+                    f"‼️ Hand over only to the specified buyer. "
+                    f"For safety, record a video of the delivery."
                 )
-
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text=TEXTS[lang]["btn_seller_delivered"], callback_data=f"seller_sent:{token}")]
                 ])
-
                 try:
-                    await bot.send_photo(chat_id=deal["seller_id"], photo=PHOTO_ID, caption=msg_text, reply_markup=kb)
+                    await bot.send_photo(
+                        chat_id=deal["seller_id"],
+                        photo=MAIN_IMAGE,
+                        caption=msg_text,
+                        reply_markup=kb
+                    )
                 except Exception as e:
                     await message.answer(f"⚠️ Could not notify seller: {e}")
             return
 
         if txt.startswith("/payout "):
-            token = txt.split()[1]
+            token = txt.split(maxsplit=1)[1]
             async with pool.acquire() as conn:
                 deal = await conn.fetchrow("SELECT amount FROM deals WHERE deal_token=$1", token)
                 if deal:
@@ -368,14 +376,15 @@ async def msg_handler(message: types.Message):
             return
 
         if txt.startswith("/cancel "):
-            token = txt.split()[1]
+            token = txt.split(maxsplit=1)[1]
             async with pool.acquire() as conn:
                 await conn.execute("UPDATE deals SET status='cancelled' WHERE deal_token=$1", token)
             await message.answer(TEXTS[lang]["deal_cancel"].format(token=token))
             return
 
+    # Deal creation flow
     state = user_states.get(uid)
-    if state and state["flow"] == "create":
+    if state and state.get("flow") == "create":
         if state["step"] == "amount":
             try:
                 amt = Decimal(txt)
@@ -403,19 +412,20 @@ async def msg_handler(message: types.Message):
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="❌ Cancel Deal", callback_data=f"cancel_deal:{deal_token}")]
             ])
+            buyer_link = f"https://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
             await bot.send_photo(
                 chat_id=message.chat.id,
-                photo=PHOTO_ID,
+                photo=MAIN_IMAGE,
                 caption=(
                     f"{TEXTS[lang]['deal_created']}\n\n"
                     f"Token: {deal_token}\n\n"
-                    f"Buyer Link:\n"
-                    f"https://t.me/{(await bot.get_me()).username}?start=join_{deal_token}"
+                    f"Buyer Link:\n{buyer_link}"
                 ),
                 reply_markup=kb
             )
             return
 
+    # Fallback to menu
     await message.answer(TEXTS[lang]["menu"], reply_markup=main_menu(lang))
 
 # ----------------- STARTUP -----------------
